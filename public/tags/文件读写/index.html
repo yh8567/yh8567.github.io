@@ -1,0 +1,361 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="dark"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>标签: 文件读写 | 江小白</title><meta name="author" content="江小白"><meta name="copyright" content="江小白"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#0d0d0d"><meta name="description" content="信息安全 | 渗透测试 | 技术分享">
+<meta property="og:type" content="website">
+<meta property="og:title" content="江小白">
+<meta property="og:url" content="http://localhost:4000/tags/%E6%96%87%E4%BB%B6%E8%AF%BB%E5%86%99/index.html">
+<meta property="og:site_name" content="江小白">
+<meta property="og:description" content="信息安全 | 渗透测试 | 技术分享">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://localhost:4000/img/avatar.jpg">
+<meta property="article:author" content="江小白">
+<meta property="article:tag" content="信息安全,渗透测试,CTF,Web安全">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://localhost:4000/img/avatar.jpg"><script type="application/ld+json"></script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="http://localhost:4000/tags/%E6%96%87%E4%BB%B6%E8%AF%BB%E5%86%99/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5-b1"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.1.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: '标签: 文件读写',
+  isHighlightShrink: false,
+  isToc: false,
+  pageType: 'tag'
+}</script><style>
+#loading-box #loading {
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0;
+  z-index: 9999; background-color: #1a1a2e; display: block;
+}
+#loading-box.loaded #loading { display: none; }
+.cat { position: relative; display: block; width: 15em; height: 100%; font-size: 10px; margin: auto; }
+.cat * { box-sizing: content-box; }
+.cat .head, .cat .foot, .cat .body, .cat .paw {
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; margin: auto;
+  border-radius: 50%; width: 15em; height: 15em;
+}
+.cat .body {
+  background-image: radial-gradient(transparent 0%, transparent 35%, #383c4b 35%, #383c4b 39%, #eda65d 39%, #eda65d 46%, #f2c089 46%, #f2c089 60%, #eda65d 60%, #eda65d 67%, #383c4b 67%, #383c4b 100%);
+}
+.cat .head:before, .cat .foot:before {
+  background-image: radial-gradient(transparent 0%, transparent 35%, #383c4b 35%, #383c4b 39%, #eda65d 39%, #eda65d 67%, #383c4b 67%, #383c4b 100%);
+}
+.cat .head:before {
+  content: ''; width: 100%; height: 100%; position: absolute; border-radius: 50%;
+  clip-path: polygon(100% 20%, 50% 50%, 70% -10%);
+  -webkit-clip-path: polygon(100% 20%, 50% 50%, 70% -10%);
+}
+.cat .head:after {
+  content: ''; width: 4.125em; height: 2.5em; position: absolute;
+  top: 0.8125em; right: 3.9375em;
+  background-image: linear-gradient(#1a1a2e 65%, transparent 65%), radial-gradient(#1a1a2e 51%, #383c4b 55%, #383c4b 68%, transparent 70%);
+  transform: rotate(-66deg);
+}
+.cat .head .face {
+  width: 5em; height: 3.75em; left: 9.0625em; top: 1.8125em; position: absolute; transform: rotate(-47deg);
+  background-image: radial-gradient(circle, #1a1a2e 0%, #1a1a2e 1.25em, transparent 1.25em, transparent 100%),
+    radial-gradient(circle, #383c4b 0%, #383c4b 0.875em, transparent 0.875em, transparent 1.25em, #1a1a2e 1.25em, #1a1a2e 1.375em, transparent 1.375em),
+    radial-gradient(circle, #383c4b 0%, #383c4b 0.875em, transparent 0.875em, transparent 1.25em, #1a1a2e 1.25em, #1a1a2e 1.375em, transparent 1.375em);
+  background-size: 3.75em 6.25em, 1.875em 1.875em, 1.875em 1.875em;
+  background-position: 0.625em -2.5em, 0.625em 2.5em, 2.25em 1.875em;
+  background-repeat: no-repeat;
+}
+.cat .foot:before, .cat .foot:after { content: ''; width: 100%; height: 100%; position: absolute; }
+.cat .foot:before {
+  border-radius: 50%;
+  clip-path: polygon(50% 50%, 0% 50%, 0% 25%);
+  -webkit-clip-path: polygon(50% 50%, 0% 50%, 0% 25%);
+}
+.cat .foot .tummy-end { width: 1.5em; height: 1.5em; position: absolute; border-radius: 50%; background-color: #f2c089; left: 1.1875em; top: 6.5625em; }
+.cat .foot .bottom { width: 2.1875em; height: 0.9375em; position: absolute; top: 4.875em; left: 0.75em; border: 0.375em solid #383c4b; border-bottom: 0; border-radius: 50%; transform: rotate(21deg); background: #eda65d; }
+.cat .hands, .cat .legs, .cat .foot:after { width: 0.625em; height: 1.5625em; position: absolute; border: 0.375em solid #383c4b; background-color: #eda65d; }
+.cat .hands { border-top: 0; border-radius: 0 0 0.75em 0.75em; }
+.cat .hands.left { top: 4.3em; left: 13.1875em; transform: rotate(-20deg); }
+.cat .hands.right { top: 5.125em; left: 10.975em; transform: rotate(-25deg); }
+.cat .legs { border-bottom: 0; border-radius: 0.75em 0.75em 0 0; }
+.cat .legs.left { top: 4.0625em; left: 3.125em; transform: rotate(25deg); }
+.cat .legs.right { top: 3.3125em; left: 0.75em; transform: rotate(22deg); }
+.cat .foot:after { width: .9em; height: 2.5em; top: 2.625em; left: 2.5em; z-index: -1; transform: rotate(25deg); background-color: #c6823b; border-bottom: 0; border-radius: 0.75em 0.75em 0 0; }
+.cat { animation: 2.74s linear infinite loading-cat; }
+.cat .body { animation: 2.74s linear infinite body; }
+.cat .foot { animation: 2.74s linear infinite foot; }
+.cat:hover, .cat:hover .body, .cat:hover .foot { animation-play-state: paused; }
+.cat:active, .cat:active .body, .cat:active .foot { animation-play-state: running; }
+@keyframes body {
+  0% { clip-path: polygon(50% 50%, 0% 50%, 0% 100%, 100% 100%, 100% 20%); }
+  10% { clip-path: polygon(50% 50%, 30% 120%, 50% 100%, 100% 100%, 100% 20%); }
+  20% { clip-path: polygon(50% 50%, 100% 90%, 120% 90%, 100% 100%, 100% 20%); }
+  40% { clip-path: polygon(50% 50%, 100% 45%, 120% 45%, 120% 50%, 100% 20%); }
+  50% { clip-path: polygon(50% 50%, 100% 45%, 120% 45%, 120% 50%, 100% 20%); }
+  65% { clip-path: polygon(50% 50%, 100% 65%, 120% 65%, 120% 50%, 100% 20%); }
+  80% { clip-path: polygon(50% 50%, 75% 130%, 120% 65%, 120% 50%, 100% 20%); }
+  90% { clip-path: polygon(50% 50%, -20% 110%, 50% 120%, 100% 100%, 100% 20%); }
+  100% { clip-path: polygon(50% 50%, 0% 50%, 0% 100%, 100% 100%, 100% 20%); }
+}
+@keyframes loading-cat {
+  0% { transform: rotate(0deg); }
+  10% { transform: rotate(-80deg); }
+  20% { transform: rotate(-180deg); }
+  40% { transform: rotate(-245deg); }
+  50% { transform: rotate(-250deg); }
+  68% { transform: rotate(-300deg); }
+  90% { transform: rotate(-560deg); }
+  100% { transform: rotate(-720deg); }
+}
+@keyframes foot {
+  0% { transform: rotate(-10deg); }
+  10% { transform: rotate(-100deg); }
+  20% { transform: rotate(-145deg); }
+  35% { transform: rotate(-190deg); }
+  50% { transform: rotate(-195deg); }
+  70% { transform: rotate(-165deg); }
+  100% { transform: rotate(-10deg); }
+}
+/* Random day/night backgrounds via JS */
+#web_bg { display: none; }
+/* Day/night banner switching */
+html[data-theme="light"] #page-header {
+  background-image: url('/img/白天banner.png') !important;
+}
+html[data-theme="dark"] #page-header {
+  background-image: url('/img/夜晚banner.png') !important;
+}
+/* Remove card/footer borders, hide footer */
+.card-widget, .recent-post-item, #page-header {
+  border: none !important; box-shadow: none !important;
+}
+#footer { display: none !important; }
+/* Immersive mode button - mini cat */
+#immersive-btn {
+  position: fixed; bottom: 90px; right: 24px; z-index: 9999;
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.4);
+  background: rgba(10,10,20,.7); cursor: pointer;
+  backdrop-filter: blur(8px); overflow: hidden;
+  box-shadow: 0 0 16px rgba(0,0,0,.5);
+  transition: transform .3s, box-shadow .3s;
+}
+#immersive-btn:hover { transform: scale(1.1); box-shadow: 0 0 24px rgba(0,198,255,.3); }
+#immersive-btn .mini-cat {
+  width: 100%; height: 100%; position: relative;
+}
+#immersive-btn .mini-cat .mini-body {
+  position: absolute; inset: 6px; border-radius: 50%;
+  background-image: radial-gradient(transparent 0%, transparent 30%, #383c4b 30%, #383c4b 34%, #eda65d 34%, #eda65d 44%, #f2c089 44%, #f2c089 58%, #eda65d 58%, #eda65d 65%, #383c4b 65%, #383c4b 100%);
+  animation: 12s linear infinite loading-cat;
+}
+body.immersive #page-header,
+body.immersive #nav,
+body.immersive #content-inner,
+body.immersive #footer,
+body.immersive #rightside { display: none !important; }
+</style>
+</style>
+<meta name="generator" content="Hexo 8.1.1"></head><body><div id="loading-box"><div id="loading"><div class="cat"><div class="body"></div><div class="head"><div class="face"></div></div><div class="foot"><div class="tummy-end"></div><div class="bottom"></div><div class="legs left"></div><div class="legs right"></div></div><div class="paw"><div class="hands left"></div><div class="hands right"></div></div></div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  window.addEventListener('load', () => {
+    setTimeout(preloader.endLoading, 800)
+  })
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', () => {
+      setTimeout(preloader.endLoading, 800)
+    }, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/avatar.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">2</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">10</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div></div></div></div><div class="page" id="body-wrap"><header class="not-home-page" id="page-header"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">江小白</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="page-site-info"><h1 id="site-title">文件读写</h1></div></header><main class="layout" id="content-inner"><div id="tag"><div class="article-sort-title">标签 - 文件读写</div><div class="article-sort"><div class="article-sort-item year">2026</div><div class="article-sort-item no-article-cover"><div class="article-sort-item-info"><div class="article-sort-item-time"><i class="far fa-calendar-alt"></i><time class="post-meta-date-created" datetime="2026-05-17T04:00:00.000Z" title="发表于 2026-05-17 12:00:00">2026-05-17</time></div><a class="article-sort-item-title" href="/2026/05/17/mysql-injection-basics/" title="SQL注入基础 — MySQL注入入门到文件读写">SQL注入基础 — MySQL注入入门到文件读写</a></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/avatar.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">江小白</div><div class="author-info-description">信息安全 | 渗透测试 | 技术分享</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">2</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">10</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/xxxxxx"><i class="fab fa-github"></i><span>Follow Me</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">This is my Blog</div></div><div class="sticky_layout"><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/05/17/sql-blind-injection/" title="SQL盲注技术 — 布尔、时间、报错注入与CMS实战">SQL盲注技术 — 布尔、时间、报错注入与CMS实战</a><time datetime="2026-05-17T05:00:00.000Z" title="发表于 2026-05-17 13:00:00">2026-05-17</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/05/17/mysql-injection-basics/" title="SQL注入基础 — MySQL注入入门到文件读写">SQL注入基础 — MySQL注入入门到文件读写</a><time datetime="2026-05-17T04:00:00.000Z" title="发表于 2026-05-17 12:00:00">2026-05-17</time></div></div></div></div><div class="card-widget card-categories"><div class="item-headline">
+            <i class="fas fa-folder-open"></i>
+            <span>分类</span>
+            
+          </div>
+          <ul class="card-category-list" id="aside-cat-list">
+            <li class="card-category-list-item "><a class="card-category-list-link" href="/categories/Web%E5%AE%89%E5%85%A8/"><span class="card-category-list-name">Web安全</span><span class="card-category-list-count">2</span></a></li>
+          </ul></div><div class="card-widget card-tags"><div class="item-headline"><i class="fas fa-tags"></i><span>标签</span></div><div class="card-tag-cloud"><a href="/tags/%E6%8A%A5%E9%94%99%E6%B3%A8%E5%85%A5/" style="font-size: 1.1em; color: #999">报错注入</a> <a href="/tags/CMS/" style="font-size: 1.1em; color: #999">CMS</a> <a href="/tags/%E7%9B%B2%E6%B3%A8/" style="font-size: 1.1em; color: #999">盲注</a> <a href="/tags/%E8%B7%A8%E5%BA%93%E6%9F%A5%E8%AF%A2/" style="font-size: 1.1em; color: #999">跨库查询</a> <a href="/tags/MySQL/" style="font-size: 1.1em; color: #999">MySQL</a> <a href="/tags/%E6%96%87%E4%BB%B6%E8%AF%BB%E5%86%99/" style="font-size: 1.1em; color: #999">文件读写</a> <a href="/tags/%E6%97%B6%E9%97%B4%E7%9B%B2%E6%B3%A8/" style="font-size: 1.1em; color: #999">时间盲注</a> <a href="/tags/%E5%B8%83%E5%B0%94%E7%9B%B2%E6%B3%A8/" style="font-size: 1.1em; color: #999">布尔盲注</a> <a href="/tags/SQL%E6%B3%A8%E5%85%A5/" style="font-size: 1.5em; color: #99a9bf">SQL注入</a> <a href="/tags/Union%E6%9F%A5%E8%AF%A2/" style="font-size: 1.1em; color: #999">Union查询</a></div></div><div class="card-widget card-archives">
+    <div class="item-headline">
+      <i class="fas fa-archive"></i>
+      <span>归档</span>
+      
+    </div>
+  
+    <ul class="card-archive-list">
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/05/">
+            <span class="card-archive-list-date">
+              五月 2026
+            </span>
+            <span class="card-archive-list-count">2</span>
+          </a>
+        </li>
+      
+    </ul>
+  </div><div class="card-widget card-webinfo"><div class="item-headline"><i class="fas fa-chart-line"></i><span>网站信息</span></div><div class="webinfo"><div class="webinfo-item"><div class="item-name">文章数目 :</div><div class="item-count">2</div></div><div class="webinfo-item"><div class="item-name">本站访客数 :</div><div class="item-count" id="busuanzi_value_site_uv"><i class="fa-solid fa-spinner fa-spin"></i></div></div><div class="webinfo-item"><div class="item-name">本站总浏览量 :</div><div class="item-count" id="busuanzi_value_site_pv"><i class="fa-solid fa-spinner fa-spin"></i></div></div><div class="webinfo-item"><div class="item-name">最后更新时间 :</div><div class="item-count" id="last-push-date" data-lastPushDate="2026-05-17T14:51:53.690Z"><i class="fa-solid fa-spinner fa-spin"></i></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2025 - 2026 By 江小白</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 8.1.1</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5-b1</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5-b1"></script><script src="/js/main.js?v=5.5.5-b1"></script><div class="js-pjax"></div><script>
+(() => {
+  const html = document.documentElement
+  const dayBgs = ['/img/白天图.png', '/img/白天图2.png']
+  const nightBgs = ['/img/夜晚图.png', '/img/夜晚图2.png']
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)] }
+
+  const saved = localStorage.getItem('theme') || 'dark'
+  html.setAttribute('data-theme', saved)
+  document.body.style.background = 'url(' + pick(saved === 'dark' ? nightBgs : dayBgs) + ') center center / cover no-repeat fixed'
+
+  const toggleBtn = document.querySelector('.nav-site-title')
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', (e) => {
+      e.preventDefault()
+      const cur = html.getAttribute('data-theme')
+      const next = cur === 'dark' ? 'light' : 'dark'
+      html.setAttribute('data-theme', next)
+      localStorage.setItem('theme', next)
+      document.body.style.background = 'url(' + pick(next === 'dark' ? nightBgs : dayBgs) + ') center center / cover no-repeat fixed'
+    })
+  }
+
+  const immersiveBtn = document.createElement('a')
+  immersiveBtn.id = 'immersive-btn'
+  immersiveBtn.title = '沉浸模式 — 隐藏页面元素，只看背景'
+  immersiveBtn.innerHTML = '<div class="mini-cat"><div class="mini-body"></div></div>'
+  document.body.appendChild(immersiveBtn)
+  immersiveBtn.addEventListener('click', () => {
+    document.body.classList.toggle('immersive')
+    immersiveBtn.style.opacity = document.body.classList.contains('immersive') ? '0.5' : '1'
+  })
+})()
+</script>
+<script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
