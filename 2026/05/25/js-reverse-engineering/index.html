@@ -1,0 +1,544 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="dark"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>JS逆向复现记录 — 反调试绕过与数据加解密实战 | 江小白</title><meta name="author" content="江小白"><meta name="copyright" content="江小白"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#0d0d0d"><meta name="description" content="反调试绕过案例一：测试网站  https:&#x2F;&#x2F;www.aqistudy.cn&#x2F;目的：绕过网站的反调试手段 网站的现有能检查到的反调试有以下三种： 禁用右键，禁用F2，无限debugger   前面两种尝试全局搜索（ctrl+shift+F）关键词，未找到匹配项，在我多点击几个页面之后，检索关键词并爆出函数”endebug”，继续寻找引用文件，全局搜索或者直接查看对关键词的引用，对此采用文件替换尝试">
+<meta property="og:type" content="article">
+<meta property="og:title" content="JS逆向复现记录 — 反调试绕过与数据加解密实战">
+<meta property="og:url" content="https://yh8567.github.io/2026/05/25/js-reverse-engineering/index.html">
+<meta property="og:site_name" content="江小白">
+<meta property="og:description" content="反调试绕过案例一：测试网站  https:&#x2F;&#x2F;www.aqistudy.cn&#x2F;目的：绕过网站的反调试手段 网站的现有能检查到的反调试有以下三种： 禁用右键，禁用F2，无限debugger   前面两种尝试全局搜索（ctrl+shift+F）关键词，未找到匹配项，在我多点击几个页面之后，检索关键词并爆出函数”endebug”，继续寻找引用文件，全局搜索或者直接查看对关键词的引用，对此采用文件替换尝试">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://yh8567.github.io/img/avatar.jpg">
+<meta property="article:published_time" content="2026-05-25T14:00:00.000Z">
+<meta property="article:modified_time" content="2026-05-25T05:17:16.292Z">
+<meta property="article:author" content="江小白">
+<meta property="article:tag" content="AES加密">
+<meta property="article:tag" content="CryptoJS">
+<meta property="article:tag" content="HMAC-SHA256">
+<meta property="article:tag" content="JS逆向">
+<meta property="article:tag" content="RSA加密">
+<meta property="article:tag" content="代码混淆">
+<meta property="article:tag" content="反调试">
+<meta property="article:tag" content="数据解密">
+<meta property="article:tag" content="签名认证">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://yh8567.github.io/img/avatar.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "JS逆向复现记录 — 反调试绕过与数据加解密实战",
+  "url": "https://yh8567.github.io/2026/05/25/js-reverse-engineering/",
+  "image": "https://yh8567.github.io/img/avatar.jpg",
+  "datePublished": "2026-05-25T14:00:00.000Z",
+  "dateModified": "2026-05-25T05:17:16.292Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "江小白",
+      "url": "https://yh8567.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://yh8567.github.io/2026/05/25/js-reverse-engineering/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5-b1"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.1.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'JS逆向复现记录 — 反调试绕过与数据加解密实战',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><style>
+#loading-box #loading {
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0;
+  z-index: 9999; background-color: #1a1a2e; display: block;
+}
+#loading-box.loaded #loading { display: none; }
+.cat { position: relative; display: block; width: 15em; height: 100%; font-size: 10px; margin: auto; }
+.cat * { box-sizing: content-box; }
+.cat .head, .cat .foot, .cat .body, .cat .paw {
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; margin: auto;
+  border-radius: 50%; width: 15em; height: 15em;
+}
+.cat .body {
+  background-image: radial-gradient(transparent 0%, transparent 35%, #383c4b 35%, #383c4b 39%, #eda65d 39%, #eda65d 46%, #f2c089 46%, #f2c089 60%, #eda65d 60%, #eda65d 67%, #383c4b 67%, #383c4b 100%);
+}
+.cat .head:before, .cat .foot:before {
+  background-image: radial-gradient(transparent 0%, transparent 35%, #383c4b 35%, #383c4b 39%, #eda65d 39%, #eda65d 67%, #383c4b 67%, #383c4b 100%);
+}
+.cat .head:before {
+  content: ''; width: 100%; height: 100%; position: absolute; border-radius: 50%;
+  clip-path: polygon(100% 20%, 50% 50%, 70% -10%);
+  -webkit-clip-path: polygon(100% 20%, 50% 50%, 70% -10%);
+}
+.cat .head:after {
+  content: ''; width: 4.125em; height: 2.5em; position: absolute;
+  top: 0.8125em; right: 3.9375em;
+  background-image: linear-gradient(#1a1a2e 65%, transparent 65%), radial-gradient(#1a1a2e 51%, #383c4b 55%, #383c4b 68%, transparent 70%);
+  transform: rotate(-66deg);
+}
+.cat .head .face {
+  width: 5em; height: 3.75em; left: 9.0625em; top: 1.8125em; position: absolute; transform: rotate(-47deg);
+  background-image: radial-gradient(circle, #1a1a2e 0%, #1a1a2e 1.25em, transparent 1.25em, transparent 100%),
+    radial-gradient(circle, #383c4b 0%, #383c4b 0.875em, transparent 0.875em, transparent 1.25em, #1a1a2e 1.25em, #1a1a2e 1.375em, transparent 1.375em),
+    radial-gradient(circle, #383c4b 0%, #383c4b 0.875em, transparent 0.875em, transparent 1.25em, #1a1a2e 1.25em, #1a1a2e 1.375em, transparent 1.375em);
+  background-size: 3.75em 6.25em, 1.875em 1.875em, 1.875em 1.875em;
+  background-position: 0.625em -2.5em, 0.625em 2.5em, 2.25em 1.875em;
+  background-repeat: no-repeat;
+}
+.cat .foot:before, .cat .foot:after { content: ''; width: 100%; height: 100%; position: absolute; }
+.cat .foot:before {
+  border-radius: 50%;
+  clip-path: polygon(50% 50%, 0% 50%, 0% 25%);
+  -webkit-clip-path: polygon(50% 50%, 0% 50%, 0% 25%);
+}
+.cat .foot .tummy-end { width: 1.5em; height: 1.5em; position: absolute; border-radius: 50%; background-color: #f2c089; left: 1.1875em; top: 6.5625em; }
+.cat .foot .bottom { width: 2.1875em; height: 0.9375em; position: absolute; top: 4.875em; left: 0.75em; border: 0.375em solid #383c4b; border-bottom: 0; border-radius: 50%; transform: rotate(21deg); background: #eda65d; }
+.cat .hands, .cat .legs, .cat .foot:after { width: 0.625em; height: 1.5625em; position: absolute; border: 0.375em solid #383c4b; background-color: #eda65d; }
+.cat .hands { border-top: 0; border-radius: 0 0 0.75em 0.75em; }
+.cat .hands.left { top: 4.3em; left: 13.1875em; transform: rotate(-20deg); }
+.cat .hands.right { top: 5.125em; left: 10.975em; transform: rotate(-25deg); }
+.cat .legs { border-bottom: 0; border-radius: 0.75em 0.75em 0 0; }
+.cat .legs.left { top: 4.0625em; left: 3.125em; transform: rotate(25deg); }
+.cat .legs.right { top: 3.3125em; left: 0.75em; transform: rotate(22deg); }
+.cat .foot:after { width: .9em; height: 2.5em; top: 2.625em; left: 2.5em; z-index: -1; transform: rotate(25deg); background-color: #c6823b; border-bottom: 0; border-radius: 0.75em 0.75em 0 0; }
+.cat { animation: 2.74s linear infinite loading-cat; }
+.cat .body { animation: 2.74s linear infinite body; }
+.cat .foot { animation: 2.74s linear infinite foot; }
+.cat:hover, .cat:hover .body, .cat:hover .foot { animation-play-state: paused; }
+.cat:active, .cat:active .body, .cat:active .foot { animation-play-state: running; }
+@keyframes body {
+  0% { clip-path: polygon(50% 50%, 0% 50%, 0% 100%, 100% 100%, 100% 20%); }
+  10% { clip-path: polygon(50% 50%, 30% 120%, 50% 100%, 100% 100%, 100% 20%); }
+  20% { clip-path: polygon(50% 50%, 100% 90%, 120% 90%, 100% 100%, 100% 20%); }
+  40% { clip-path: polygon(50% 50%, 100% 45%, 120% 45%, 120% 50%, 100% 20%); }
+  50% { clip-path: polygon(50% 50%, 100% 45%, 120% 45%, 120% 50%, 100% 20%); }
+  65% { clip-path: polygon(50% 50%, 100% 65%, 120% 65%, 120% 50%, 100% 20%); }
+  80% { clip-path: polygon(50% 50%, 75% 130%, 120% 65%, 120% 50%, 100% 20%); }
+  90% { clip-path: polygon(50% 50%, -20% 110%, 50% 120%, 100% 100%, 100% 20%); }
+  100% { clip-path: polygon(50% 50%, 0% 50%, 0% 100%, 100% 100%, 100% 20%); }
+}
+@keyframes loading-cat {
+  0% { transform: rotate(0deg); }
+  10% { transform: rotate(-80deg); }
+  20% { transform: rotate(-180deg); }
+  40% { transform: rotate(-245deg); }
+  50% { transform: rotate(-250deg); }
+  68% { transform: rotate(-300deg); }
+  90% { transform: rotate(-560deg); }
+  100% { transform: rotate(-720deg); }
+}
+@keyframes foot {
+  0% { transform: rotate(-10deg); }
+  10% { transform: rotate(-100deg); }
+  20% { transform: rotate(-145deg); }
+  35% { transform: rotate(-190deg); }
+  50% { transform: rotate(-195deg); }
+  70% { transform: rotate(-165deg); }
+  100% { transform: rotate(-10deg); }
+}
+/* Random day/night backgrounds via JS */
+#web_bg { display: none; }
+/* Day/night banner switching */
+html[data-theme="light"] #page-header {
+  background-image: url('/img/白天banner.png') !important;
+}
+html[data-theme="dark"] #page-header {
+  background-image: url('/img/夜晚banner.png') !important;
+}
+/* Remove card/footer borders, hide footer */
+.card-widget, .recent-post-item, #page-header {
+  border: none !important; box-shadow: none !important;
+}
+#footer { display: none !important; }
+/* Immersive mode button - mini cat */
+#immersive-btn {
+  position: fixed; bottom: 90px; right: 24px; z-index: 9999;
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.4);
+  background: rgba(10,10,20,.7); cursor: pointer;
+  backdrop-filter: blur(8px); overflow: hidden;
+  box-shadow: 0 0 16px rgba(0,0,0,.5);
+  transition: transform .3s, box-shadow .3s;
+}
+#immersive-btn:hover { transform: scale(1.1); box-shadow: 0 0 24px rgba(0,198,255,.3); }
+#immersive-btn .mini-cat {
+  width: 100%; height: 100%; position: relative;
+}
+#immersive-btn .mini-cat .mini-body {
+  position: absolute; inset: 6px; border-radius: 50%;
+  background-image: radial-gradient(transparent 0%, transparent 30%, #383c4b 30%, #383c4b 34%, #eda65d 34%, #eda65d 44%, #f2c089 44%, #f2c089 58%, #eda65d 58%, #eda65d 65%, #383c4b 65%, #383c4b 100%);
+  animation: 12s linear infinite loading-cat;
+}
+body.immersive #page-header,
+body.immersive #nav,
+body.immersive #content-inner,
+body.immersive #footer,
+body.immersive #rightside { display: none !important; }
+</style>
+</style>
+<meta name="generator" content="Hexo 8.1.1"></head><body><div id="loading-box"><div id="loading"><div class="cat"><div class="body"></div><div class="head"><div class="face"></div></div><div class="foot"><div class="tummy-end"></div><div class="bottom"></div><div class="legs left"></div><div class="legs right"></div></div><div class="paw"><div class="hands left"></div><div class="hands right"></div></div></div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  window.addEventListener('load', () => {
+    setTimeout(preloader.endLoading, 800)
+  })
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', () => {
+      setTimeout(preloader.endLoading, 800)
+    }, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/avatar.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">6</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">41</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">2</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">江小白</span></a><a class="nav-page-title" href="/"><span class="site-name">JS逆向复现记录 — 反调试绕过与数据加解密实战</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">JS逆向复现记录 — 反调试绕过与数据加解密实战</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-05-25T14:00:00.000Z" title="发表于 2026-05-25 22:00:00">2026-05-25</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-05-25T05:17:16.292Z" title="更新于 2026-05-25 13:17:16">2026-05-25</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/JS%E9%80%86%E5%90%91/">JS逆向</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h1 id="反调试绕过案例一："><a href="#反调试绕过案例一：" class="headerlink" title="反调试绕过案例一："></a>反调试绕过案例一：</h1><h2 id="测试网站-https-www-aqistudy-cn"><a href="#测试网站-https-www-aqistudy-cn" class="headerlink" title="测试网站  https://www.aqistudy.cn/"></a>测试网站  <a target="_blank" rel="noopener" href="https://www.aqistudy.cn/">https://www.aqistudy.cn/</a></h2><p>目的：绕过网站的反调试手段</p>
+<p>网站的现有能检查到的反调试有以下三种：</p>
+<p>禁用右键，禁用F2，无限debugger</p>
+<!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/js-reverse/1778317835470-5c03b528-8c8c-4288-b0ad-3a0e3a766b16.png"><!-- 这是一张图片，ocr 内容为： --><br><img src="/images/js-reverse/1778317851099-cdbffd6b-9314-474e-8a99-365f2183fb1c.png"><!-- 这是一张图片，ocr 内容为： --><br><img src="/images/js-reverse/1778317883751-7d1a5dab-3855-4a8f-b511-3c50b70f5912.png"></p>
+<p>前面两种尝试全局搜索（ctrl+shift+F）关键词，未找到匹配项，在我多点击几个页面之后，检索关键词并爆出函数”endebug”，继续寻找引用文件，全局搜索或者直接查看对关键词的引用，对此采用文件替换尝试绕过(在抓的包中html路径下的php文件里有一个eval …加密的一行代码，在控制台输出发现也是一处反调试，文件替换注释掉就行)，可以正常进行F12或者右键进行调试了</p>
+<!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/js-reverse/1778403637734-399f3cfa-3552-426e-a1a1-abf4e067deb1.png"><!-- 这是一张图片，ocr 内容为： --><br><img src="/images/js-reverse/1778403954219-44528430-58b5-4c18-8c71-83fbb6ccf46e.png"></p>
+<!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/js-reverse/1778404114948-d579e407-2814-4e3a-adc3-ff8b3b6546aa.png"></p>
+<p>:::info<br>搜索关键词没有，无外乎几种情况</p>
+<p>其一，管理员对汉字或者关键词做了编码处理，在代码中显示的是其他的字符，再在网页输出中再转换<br>其二，关键词并没有在代码中出现，而是隐藏在某个文件中的被引用的文件里，网页一般并不会被加载<br>解决办法：<br>针对第一种，就是将文字编码之后再搜索，第二种可以多打开几个页面让浏览器多加载几个文件</p>
+<p>:::</p>
+<h1 id="反调试绕过案例二："><a href="#反调试绕过案例二：" class="headerlink" title="反调试绕过案例二："></a>反调试绕过案例二：</h1><h2 id="测试网站，本地文件debug-html"><a href="#测试网站，本地文件debug-html" class="headerlink" title="测试网站，本地文件debug.html"></a>测试网站，本地文件debug.html</h2><figure class="highlight html"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&lt;!DOCTYPE <span class="keyword">html</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">html</span> <span class="attr">lang</span>=<span class="string">&quot;zh-CN&quot;</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">head</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">meta</span> <span class="attr">charset</span>=<span class="string">&quot;UTF-8&quot;</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">title</span>&gt;</span>反调试示例<span class="tag">&lt;/<span class="name">title</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">style</span>&gt;</span><span class="language-css"></span></span><br><span class="line"><span class="language-css">        <span class="selector-tag">body</span> &#123; <span class="attribute">font-family</span>: Arial, sans-serif; <span class="attribute">margin</span>: <span class="number">20px</span>; &#125;</span></span><br><span class="line"><span class="language-css">        <span class="selector-class">.debugger-test</span> &#123; <span class="attribute">padding</span>: <span class="number">20px</span>; <span class="attribute">border</span>: <span class="number">1px</span> solid <span class="number">#ccc</span>; &#125;</span></span><br><span class="line"><span class="language-css">    </span><span class="tag">&lt;/<span class="name">style</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">head</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">body</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">h1</span>&gt;</span>反调试示例页面<span class="tag">&lt;/<span class="name">h1</span>&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="tag">&lt;<span class="name">div</span> <span class="attr">class</span>=<span class="string">&quot;debugger-test&quot;</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">p</span>&gt;</span>这个页面包含反调试代码，尝试调试会触发断点。<span class="tag">&lt;/<span class="name">p</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">button</span> <span class="attr">id</span>=<span class="string">&quot;startButton&quot;</span>&gt;</span>开始测试<span class="tag">&lt;/<span class="name">button</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">div</span> <span class="attr">id</span>=<span class="string">&quot;result&quot;</span>&gt;</span><span class="tag">&lt;/<span class="name">div</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">div</span>&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="tag">&lt;<span class="name">script</span>&gt;</span><span class="language-javascript"></span></span><br><span class="line"><span class="language-javascript">    <span class="comment">// 直接使用debugger</span></span></span><br><span class="line"><span class="language-javascript">    <span class="keyword">function</span> <span class="title function_">enableDebugProtection</span>(<span class="params"></span>) &#123;</span></span><br><span class="line"><span class="language-javascript">        <span class="keyword">var</span> dbg = <span class="keyword">new</span> <span class="title class_">Function</span>(<span class="string">&quot;debugger&quot;</span>);</span></span><br><span class="line"><span class="language-javascript">        <span class="built_in">setInterval</span>(dbg, <span class="number">3000</span>); <span class="comment">// 每3秒触发一次debugger</span></span></span><br><span class="line"><span class="language-javascript"></span></span><br><span class="line"><span class="language-javascript">        <span class="comment">// 也可以直接嵌入debugger</span></span></span><br><span class="line"><span class="language-javascript">        <span class="comment">// setInterval(function() &#123;</span></span></span><br><span class="line"><span class="language-javascript">        <span class="comment">//     debugger;</span></span></span><br><span class="line"><span class="language-javascript">        <span class="comment">// &#125;, 5000); // 每5秒触发一次</span></span></span><br><span class="line"><span class="language-javascript">    &#125;</span></span><br><span class="line"><span class="language-javascript"></span></span><br><span class="line"><span class="language-javascript">    <span class="comment">// 更隐蔽的debugger形式</span></span></span><br><span class="line"><span class="language-javascript">    <span class="comment">// function hiddenDebugger() &#123;</span></span></span><br><span class="line"><span class="language-javascript">    <span class="comment">//     var code = &quot;d&quot; + &quot;e&quot; + &quot;bugger;&quot;;</span></span></span><br><span class="line"><span class="language-javascript">    <span class="comment">//     new Function(code)();</span></span></span><br><span class="line"><span class="language-javascript">    <span class="comment">// &#125;</span></span></span><br><span class="line"><span class="language-javascript"></span></span><br><span class="line"><span class="language-javascript">    <span class="variable language_">document</span>.<span class="title function_">getElementById</span>(<span class="string">&#x27;startButton&#x27;</span>).<span class="title function_">addEventListener</span>(<span class="string">&#x27;click&#x27;</span>, <span class="keyword">function</span>(<span class="params"></span>) &#123;</span></span><br><span class="line"><span class="language-javascript">        <span class="variable language_">document</span>.<span class="title function_">getElementById</span>(<span class="string">&#x27;result&#x27;</span>).<span class="property">textContent</span> = <span class="string">&quot;测试已启动...尝试调试此页面&quot;</span>;</span></span><br><span class="line"><span class="language-javascript"></span></span><br><span class="line"><span class="language-javascript">        <span class="comment">// 启动反调试保护</span></span></span><br><span class="line"><span class="language-javascript">        <span class="title function_">enableDebugProtection</span>();</span></span><br><span class="line"><span class="language-javascript"></span></span><br><span class="line"><span class="language-javascript">        <span class="comment">// 延迟启动隐蔽的debugger</span></span></span><br><span class="line"><span class="language-javascript">        <span class="comment">//setTimeout(hiddenDebugger, 10000);</span></span></span><br><span class="line"><span class="language-javascript">    &#125;);</span></span><br><span class="line"><span class="language-javascript"></span><span class="tag">&lt;/<span class="name">script</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">body</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">html</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>目的：针对debug利用ai来完成篡改猴hook的编写</p>
+<p>对于ai的prompt，需找出debug的核心逻辑，围绕此来进行输出，我写的是“针对此debug，写一个篡改猴的hook反调试绕过脚本“</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">function enableDebugProtection() &#123;</span><br><span class="line">       var dbg = new Function(&quot;debugger&quot;);</span><br><span class="line">       setInterval(dbg, 3000); // 每3秒触发一次debugger</span><br></pre></td></tr></table></figure>
+
+<p>这是ai根据关键词生成的钩子，现在进行尝试绕过，完全可以，结果简单就不截图了</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ==UserScript==</span></span><br><span class="line"><span class="comment">// @name         Anti Debugger Bypass</span></span><br><span class="line"><span class="comment">// @namespace    http://tampermonkey.net/</span></span><br><span class="line"><span class="comment">// @version      1.0</span></span><br><span class="line"><span class="comment">// @description  Hook debugger protection</span></span><br><span class="line"><span class="comment">// @match        *://*/*</span></span><br><span class="line"><span class="comment">// @grant        none</span></span><br><span class="line"><span class="comment">// @run-at       document-start</span></span><br><span class="line"><span class="comment">// ==/UserScript==</span></span><br><span class="line"></span><br><span class="line">(<span class="keyword">function</span> (<span class="params"></span>) &#123;</span><br><span class="line">  <span class="string">&#x27;use strict&#x27;</span>;</span><br><span class="line"></span><br><span class="line">  <span class="variable language_">console</span>.<span class="title function_">log</span>(<span class="string">&quot;[Hook] Anti-debug enabled&quot;</span>);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 保存原始 Function</span></span><br><span class="line">  <span class="keyword">const</span> <span class="title class_">RawFunction</span> = <span class="variable language_">window</span>.<span class="property">Function</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Hook Function 构造器</span></span><br><span class="line">  <span class="variable language_">window</span>.<span class="property">Function</span> = <span class="keyword">new</span> <span class="title class_">Proxy</span>(<span class="title class_">RawFunction</span>, &#123;</span><br><span class="line">    <span class="title function_">construct</span>(<span class="params">target, args</span>) &#123;</span><br><span class="line"></span><br><span class="line">      <span class="keyword">let</span> code = args.<span class="title function_">join</span>(<span class="string">&quot;,&quot;</span>);</span><br><span class="line"></span><br><span class="line">      <span class="comment">// 检测 debugger</span></span><br><span class="line">      <span class="keyword">if</span> (code.<span class="title function_">includes</span>(<span class="string">&quot;debugger&quot;</span>)) &#123;</span><br><span class="line">        <span class="variable language_">console</span>.<span class="title function_">log</span>(<span class="string">&quot;[Hook] debugger code blocked&quot;</span>);</span><br><span class="line"></span><br><span class="line">        code = code.<span class="title function_">replace</span>(<span class="regexp">/debugger/g</span>, <span class="string">&quot;&quot;</span>);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> <span class="title function_">target</span>(code);</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      <span class="keyword">return</span> <span class="keyword">new</span> <span class="title function_">target</span>(...args);</span><br><span class="line">    &#125;,</span><br><span class="line"></span><br><span class="line">    <span class="title function_">apply</span>(<span class="params">target, thisArg, args</span>) &#123;</span><br><span class="line"></span><br><span class="line">      <span class="keyword">let</span> code = args.<span class="title function_">join</span>(<span class="string">&quot;,&quot;</span>);</span><br><span class="line"></span><br><span class="line">      <span class="keyword">if</span> (code.<span class="title function_">includes</span>(<span class="string">&quot;debugger&quot;</span>)) &#123;</span><br><span class="line">        <span class="variable language_">console</span>.<span class="title function_">log</span>(<span class="string">&quot;[Hook] debugger function blocked&quot;</span>);</span><br><span class="line"></span><br><span class="line">        code = code.<span class="title function_">replace</span>(<span class="regexp">/debugger/g</span>, <span class="string">&quot;&quot;</span>);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> target.<span class="title function_">call</span>(thisArg, code);</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      <span class="keyword">return</span> target.<span class="title function_">apply</span>(thisArg, args);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Hook setInterval</span></span><br><span class="line">  <span class="keyword">const</span> rawSetInterval = <span class="variable language_">window</span>.<span class="property">setInterval</span>;</span><br><span class="line"></span><br><span class="line">  <span class="variable language_">window</span>.<span class="property">setInterval</span> = <span class="keyword">function</span> (<span class="params">fn, delay, ...rest</span>) &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 函数转字符串检测</span></span><br><span class="line">    <span class="keyword">const</span> str = fn?.<span class="property">toString</span>?.() || <span class="string">&quot;&quot;</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (str.<span class="title function_">includes</span>(<span class="string">&quot;debugger&quot;</span>)) &#123;</span><br><span class="line">      <span class="variable language_">console</span>.<span class="title function_">log</span>(<span class="string">&quot;[Hook] setInterval debugger blocked&quot;</span>);</span><br><span class="line"></span><br><span class="line">      <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="title function_">rawSetInterval</span>(fn, delay, ...rest);</span><br><span class="line">  &#125;;</span><br><span class="line"></span><br><span class="line">&#125;)();</span><br></pre></td></tr></table></figure>
+
+<h1 id="请求数据解密案例一："><a href="#请求数据解密案例一：" class="headerlink" title="请求数据解密案例一："></a>请求数据解密案例一：</h1><h2 id="测试网站https-login-zhangin-com"><a href="#测试网站https-login-zhangin-com" class="headerlink" title="测试网站	https://login.zhangin.com/"></a>测试网站	<a target="_blank" rel="noopener" href="https://login.zhangin.com/">https://login.zhangin.com/</a></h2><p>目的：寻找网站对于输入账号和密码的加密逻辑</p>
+<p>关键字：”param:”</p>
+<p>通过关键字，寻找调用堆栈文件对应，数据加密后下断点，可追踪到加密函数za</p>
+<!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/js-reverse/1761457117709-7c068d60-4280-4989-80f6-354c6cd0f25f.png"></p>
+<p>za(c.value,S)&#x3D;&gt;加密结果O</p>
+<p>S &#x3D; A + “&lt;&gt;&lt;&gt;” + m + “&lt;&gt;&lt;&gt;” + w </p>
+<p>A&#x3D;账号</p>
+<p>m&#x3D;密码</p>
+<p>w&#x3D;验证码（无验证码则为空）</p>
+<p>这个网站初始登录无需验证码，当后续出现错误登录不正确则会添加验证码进行验证</p>
+<p>继续寻找za函数的加密逻辑</p>
+<!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/js-reverse/1761457543338-f0f6713c-b7a9-4803-992b-dcfa65bcc2a6.png"></p>
+<p>（图中，t，r值由e通过如图方法赋值，加密方式则为AES）</p>
+<p>AES加密</p>
+<p>偏移量  r&#x3D;za的第一个参数值(r的值由e传输)   54oQDepNSHj4zCuP</p>
+<p>模式 CBC</p>
+<p>填充 ZeroPadding</p>
+<p>密钥 t&#x3D;za的第一个参数值(t的值由e传输) 54oQDepNSHj4zCuP</p>
+<p>在断点处可知，za(c.value, S)，所以具体值为c.value<!-- 这是一张图片，ocr 内容为： --><br><img src="/images/js-reverse/1761457960802-1bd2a50c-2fdd-418b-9555-fca77ce9b87a.png"></p>
+<p>尝试复现<!-- 这是一张图片，ocr 内容为： --><br><img src="/images/js-reverse/1761458746871-921969e1-9a9e-4f48-b5c6-2320b8fb0266.png"></p>
+<p>与浏览器输出结果一致，逻辑正确</p>
+<!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/js-reverse/1761458806293-5b9d443f-a1e5-49da-ba8d-c4b45bb84b13.png"></p>
+<p>后续进行测试，可抓包</p>
+<p>“账号&lt;&gt;&lt;&gt;密码&lt;&gt;&lt;&gt;验证码“</p>
+<p>对账号或者密码替换利用此逻辑进行暴力破解</p>
+<h1 id="请求数据解密案例二："><a href="#请求数据解密案例二：" class="headerlink" title="请求数据解密案例二："></a>请求数据解密案例二：</h1><h2 id="测试网站https-auth-xincheng-com"><a href="#测试网站https-auth-xincheng-com" class="headerlink" title="测试网站https://auth.xincheng.com/"></a>测试网站<a target="_blank" rel="noopener" href="https://auth.xincheng.com/">https://auth.xincheng.com/</a></h2><p>目的：寻找网站对于输入账号和密码的加密逻辑</p>
+<p>方式：单个使用扣代码调用</p>
+<p>:::info<br>针对那种独立的，处理加密运行和其他文件关联较少的文件使用这种方式比较好，因为这种方式是将整个加密逻辑存储到本地运行整个加密流程，若是文件引用其他文件较多，那么需要在本地搭建的加密的环境是比较繁琐的，而且可能因为某一文件引用不到更加容易运行失败出错</p>
+<p>:::</p>
+<p>关键字：”hidetxtPassword”</p>
+<!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/js-reverse/1761463415972-42dcbd3e-41dd-4321-9c90-9d77901a26e6.png"></p>
+<p>寻找到核心的加密逻辑</p>
+<p>var encrypt &#x3D; new JSEncrypt();</p>
+<pre><code>encrypt.setPublicKey($(&quot;#Public_key&quot;).val());
+
+hidetxtPassword = encrypt.encrypt($(&quot;#txtPassword&quot;).val());
+</code></pre>
+<p>:::info<br>var encrypt &#x3D; new JSEncrypt();</p>
+<p>创建一个 <strong>JSEncrypt 对象</strong>。</p>
+<p>这个对象用于执行加密、解密、公钥&#x2F;私钥设置等操作。</p>
+<p>encrypt.setPublicKey($(“#Public_key”).val());</p>
+<p><code>$(&quot;#Public_key&quot;)</code>：使用 <strong>jQuery</strong> 语法选择页面上 id 为 <code>Public_key</code> 的元素。</p>
+<p><code>.val()</code>：取出该元素的值（一般是 RSA 公钥字符串）。</p>
+<p><code>encrypt.setPublicKey(...)</code>：将这个字符串设置为加密器的 <strong>公钥</strong>。</p>
+<p> <code>encrypt</code>：“加密时要使用这个公钥。”</p>
+<p>hidetxtPassword &#x3D; encrypt.encrypt($(“#txtPassword”).val());</p>
+<p><code>$(&quot;#txtPassword&quot;).val()</code> 取出输入框（id 为 <code>txtPassword</code>）中的用户密码。</p>
+<p><code>encrypt.encrypt(...)</code> 使用之前设置的公钥对该密码执行加密。</p>
+<p>加密后的字符串被保存到变量 <code>hidetxtPassword</code> </p>
+<p>:::</p>
+<p>调用JSEncrypt对象来源于文件jsencrypt.min.js</p>
+<p>查看文件jsencrypt.min.js，没有找到具体的加密逻辑</p>
+<p>所以想本地引用此js文件，进行本地复现出算法的加密逻辑</p>
+<p>Public_key尝试在表单进行全局搜索，可得MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAynjrCVuQRQscFBs+f9MBN6HA7ES9E&#x2F;elS8wyJspi&#x2F;N0dBXPmimgtdvDV&#x2F;QI4BkE4irvM0vMJIEZzQJ22TEimD0oi4e9aMF5u+82&#x2F;oIFEaCuAkdpxuF9XWfC5HNFivRzdMaX80UOajOkx+8cVjaiaXxR9KFFkJwyHv88v0B08vJHaSpP7igSJAAon0htj43JwZSNDQWQNkkw18zISGKASIz9ZNik00CAWXNEnkOq7bLClcp4yH4gGz&#x2F;USf0PJimTWjfDLNRhvdwn9YlZpjepQTPux3BWzhBu1pMB0QtZd1SKxLMsrMV9yn9TUIVllg1B8eE+f1fbyZfS+SwQAE6u+xQIDAQAB</p>
+<p>创建文件夹111，将jsencrypt.min.js添加到其中，并创建html文件进行输出测试</p>
+<p>调试发现成功并且加密结果刷新后都会改变</p>
+<!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/js-reverse/1761465888200-6e2ca78b-2a7b-42bb-a18a-4d77e92a21d1.png"></p>
+<p>对于安全的利用，比如说可以在本地环境进行sql语句的加密,再将加密后的结果发送到网页进行sql测试</p>
+<p>以上网页加密数据，都是产生在客户端，在客户端对数据进行加密后，再发送到服务器</p>
+<p>客户端</p>
+<p>用户登录&#x3D;&gt;解密提取&#x3D;&gt;逻辑判断&#x3D;&gt;返回结果</p>
+<hr>
+<h1 id="返回数据解密案例："><a href="#返回数据解密案例：" class="headerlink" title="返回数据解密案例："></a>返回数据解密案例：</h1><h2 id="测试网站-https-www-weibotop-cn-2-0"><a href="#测试网站-https-www-weibotop-cn-2-0" class="headerlink" title="测试网站:https://www.weibotop.cn/2.0/"></a>测试网站:<a target="_blank" rel="noopener" href="https://www.weibotop.cn/2.0/">https://www.weibotop.cn/2.0/</a></h2><p>目的：将抓包的加密数据进行还原</p>
+<p>关键字：currntitems（网站数据包的请求路径名称）</p>
+<!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/js-reverse/1762135502763-078135ee-d7f9-465d-af6a-f3e264c05be0.png" alt="网站抓包数据"></p>
+<p>搜索文件路径，爆出main.js文件，寻找到加密逻辑和解密逻辑，尝试断点，发现加密数据解密过程</p>
+<p>AES解密</p>
+<p>o：需要解密的字符串（断点后可知，t是base64处理后的加密值，t值给i后， n.enc.Base64.parse()是base64的解码方法，o &#x3D; n.enc.Base64.parse(i)将原来i的值base64解码赋值给o）</p>
+<p>r：密钥key（r的值由a赋予）</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">s = n.SHA1(n.enc.Utf8.parse(&quot;tSdGtmwh49BcR1irt18mxG41dGsBuGKS&quot;))</span><br><span class="line">a = n.enc.Hex.parse(s.toString(n.enc.Hex).substr(0, 32));</span><br></pre></td></tr></table></figure>
+
+<p>对字符串进行utf-8的转换，再进行SHA1的哈希计算加密，再将结果进行16字符的转换（s.toString(n.enc.Hex)），并截取前32位字符，最后再将十六进制字符串解析回字节数组</p>
+<p>iv：无</p>
+<p>模式：ECB</p>
+<p>padding：Pkcs7</p>
+<!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/js-reverse/1762136505515-79fd9729-7b10-4fc3-b923-e5f6e5f95ad4.png" alt="解密逻辑"></p>
+<p>JSON.parse(e)就是解密结果（控制台可以输出查看）</p>
+<p>因为key的值不是固定的，每一次生成都不一样，所以对于数据的加密后的结果，每一次也会不同</p>
+<p>想要对于加密的数据进行解密，就需要将源代码扣下来（多个使用替代库模拟）</p>
+<hr>
+<h1 id="sign（签名）认证逻辑案例一："><a href="#sign（签名）认证逻辑案例一：" class="headerlink" title="sign（签名）认证逻辑案例一："></a>sign（签名）认证逻辑案例一：</h1><h2 id="测试网站：yakit靶场（前端验证签名表单HMAC-SHA256）"><a href="#测试网站：yakit靶场（前端验证签名表单HMAC-SHA256）" class="headerlink" title="测试网站：yakit靶场（前端验证签名表单HMAC-SHA256）"></a>测试网站：yakit靶场（前端验证签名表单HMAC-SHA256）</h2><!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/js-reverse/1762692066956-6d8c1187-5c2e-4fca-90e7-24a6264809ff.png"></p>
+<p>对于这种登录测试，一般首先采用爆破，但是抓包后对原始包的数据进行修改时，出现了“签名验证失败”，所以采用常规的密码爆破肯定不行的，需要先对签名认证逻辑进行分析，再结合爆破，对账号密码进行破解</p>
+<!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/js-reverse/1762693485192-7aa3db4d-5cbc-4cc3-8db3-e7978fed44af.png"></p>
+<p>在网站进行抓包，找到签名的生成逻辑的调用堆栈，再进行断点查看签名的生成（这里采用的是XHR&#x2F;提取断点，访问地址时进行断点）</p>
+<!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/js-reverse/1762693802751-d5d07492-2d30-4820-930a-0d93a1583677.png"></p>
+<p>经上分析，在let submitResult &#x3D; JSON.stringify(outputObj(jsonData), null, 2)后首次出现签名，&#x3D;</p>
+<p>outputObj() 首先调用 <code>outputObj</code>函数，传入 <code>jsonData</code>作为参数</p>
+<p>JSON.stringify() 将JavaScript值转换为JSON字符串,里面有三个参数，第一个是outputObj(jsonData)的返回值，第二个null表示不进行替换，第三个2指的是缩进空格数，只是起到格式美化作用</p>
+<p>所以判断outputObj(jsonData)函数为sign生成函数，查看调用</p>
+<!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/js-reverse/1762697929342-6bccdbd7-2693-40f8-857c-3178db09bb02.png"></p>
+<!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/js-reverse/1762698263292-a26fa944-df7d-4cb9-9208-24e1c9e184fc.png"></p>
+<p>signature的值是加密Encrypt(word)后，word值是<code>username=${jsonData.username}&amp;password=${jsonData.password}</code></p>
+<p>再看Encrypt()的加密逻辑</p>
+<!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/js-reverse/1762698544679-37119d26-7047-478f-bb37-443a5434921f.png"></p>
+<p>加密采用CryptoJS 库中的 HMAC-SHA256 加密函数，第一个参数“word”为要加密的数据，第二个参数“<code>key.toString(CryptoJS.enc.Utf8)</code>”加密密钥，转换为 UTF-8 字符串格式，最后<code>.toString()</code>：将加密结果转换为字符串格式</p>
+<p>key：</p>
+<p>var key &#x3D; CryptoJS.enc.Utf8.parse(‘1234567890123456’);</p>
+<p>console.log(key.toString());  </p>
+<p>是将“1234567890123456”字符串转成ASCII码值，再将数字（并非字符串）ASCII码转换成16进制拼接起来（保持质疑，这点我也不太清楚了，需要仔细再研究）</p>
+<!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/js-reverse/1762753210847-fb893b59-e24d-42a0-8b4e-dabe23ff7a02.png"><!-- 这是一张图片，ocr 内容为： --><br><img src="/images/js-reverse/1762753156130-4164f2d5-45d9-4e14-bf5f-1c0ebcd63572.png"></p>
+<p>经验证，与原先网页生成的签名一致，逻辑成功</p>
+<h1 id="sign（签名）认证逻辑案例二："><a href="#sign（签名）认证逻辑案例二：" class="headerlink" title="sign（签名）认证逻辑案例二："></a>sign（签名）认证逻辑案例二：</h1><p>测试网站：<a target="_blank" rel="noopener" href="https://www.zaixiankaoshi.com/">https://www.zaixiankaoshi.com/</a></p>
+<p>f12页面查看请求数据包可以看见名为“client”包的负载里面加载sign签名的响应值<!-- 这是一张图片，ocr 内容为： --><br><img src="/images/js-reverse/1762754104182-66b90384-f7ee-4d32-94ec-b10b2ee762b6.png"></p>
+<p>寻找sign生成，直接搜关键字不太可行，因为它是伴随着网页数据包的加载产生的，并不是由我们请求生成的sign，当然查看了调用堆栈后发现也不太可行，所以尝试在访问地址进行下断<!-- 这是一张图片，ocr 内容为： --><br><img src="/images/js-reverse/1762754504626-10e14c15-bb16-41e8-bfb2-19dd14a85027.png"></p>
+<p>所以将请求地址断点设置为“client”，当访问此路径时进行断点</p>
+<p> sign产生断点成功，对sign生成进行推测，代码从后往前推，也可以看调用堆栈</p>
+<!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/js-reverse/1762754617415-89ccedd7-60e4-4507-b72b-c40d35aa4300.png"></p>
+<p>因为此时的sign值在数据包中由y给予的，再往上追溯，发现y被赋值为 t.data的值,同样发现m是t.header，当然这里不这么重要，所以sign的值可能是被赋予给了t</p>
+<!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/js-reverse/1762755551747-5628af77-d692-4e87-a034-b5621b609590.png"><!-- 这是一张图片，ocr 内容为： --><br><img src="/images/js-reverse/1762755598197-dbd20912-6e65-4748-8c41-fbbeffa14cd6.png"></p>
+<p>查看t有没有调用发现并没有什么有用的，所以从调用堆栈的最底部入手，从下往上看，查看t是什么时候产生的，当进入文件查看t的值发现，t已经被赋予了值，当然包含了sign，所以sign肯定是从这个最底部的文件产生的，这时候在当前文件下搜索关键字“sign“，翻了上下所有，发现最相关的一条，t的sign值由来是h产生，所以在附近上下寻找h的产生</p>
+<!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/js-reverse/1762756226338-a32d3388-ce09-4fda-836b-166ee347c68e.png"><!-- 这是一张图片，ocr 内容为： --><br><img src="/images/js-reverse/1762756514043-6ae6fde0-49b5-4c19-b514-5ceac6c5784c.png"></p>
+<p>找到了</p>
+<p>h &#x3D; Ds()(o + c + r + n + o)</p>
+<p>现在查看函数Ds()，采用Md5对数据t进行加密，e表示输出格式的方法名</p>
+<p>n是时间戳，获取当前时间</p>
+<p>o是固定值：”12b6bb84e093532fb72b4d65fec3f00b”</p>
+<p>r是地址移除&#x2F;api后的值，我没找到相关路径，但是可以直接在函数调用的时候看到，值是：”&#x2F;banner&#x2F;get”</p>
+<p>c是获取名为“uu”的cookie值，暂定是”af1dfc86-f9be-4220-88eb-1d71ad670859”</p>
+<!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/js-reverse/1762757137461-79f31726-04a8-49b7-85a7-a35a1d0a40e8.png"></p>
+<p>将加密逻辑提交给ai，并用node代码写出完整的加密逻辑，或者，配合网站原来发送数据包的形式，结合加密逻辑可以尝试让ai写一份关于加密逻辑的验证</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line">const crypto = require(&#x27;crypto&#x27;);</span><br><span class="line"></span><br><span class="line">class SignatureGenerator &#123;</span><br><span class="line">    constructor() &#123;</span><br><span class="line">        this.fixedValue = &quot;12b6bb84e093532fb72b4d65fec3f00b&quot;;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    // MD5 加密</span><br><span class="line">    md5(data) &#123;</span><br><span class="line">        return crypto.createHash(&#x27;md5&#x27;).update(data).digest(&#x27;hex&#x27;);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    // 模拟 Ds() 函数</span><br><span class="line">    Ds(data) &#123;</span><br><span class="line">        return () =&gt; this.md5(data);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    // 生成签名</span><br><span class="line">    generateSignature(cookieValue, apiPath) &#123;</span><br><span class="line">        const n = Date.now().toString(); // 时间戳</span><br><span class="line">        const inputString = this.fixedValue + cookieValue + apiPath + n + this.fixedValue;</span><br><span class="line">        </span><br><span class="line">        const signature = this.Ds(inputString)();</span><br><span class="line">        </span><br><span class="line">        return &#123;</span><br><span class="line">            timestamp: n,</span><br><span class="line">            input: inputString,</span><br><span class="line">            signature: signature,</span><br><span class="line">            details: &#123;</span><br><span class="line">                fixedValue: this.fixedValue,</span><br><span class="line">                cookie: cookieValue,</span><br><span class="line">                apiPath: apiPath</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">// 使用示例</span><br><span class="line">const generator = new SignatureGenerator();</span><br><span class="line"></span><br><span class="line">const cookieValue = &quot;af1dfc86-f9be-4220-88eb-1d71ad670859&quot;;</span><br><span class="line">const apiPath = &quot;/banner/get&quot;;</span><br><span class="line"></span><br><span class="line">const result = generator.generateSignature(cookieValue, apiPath);</span><br><span class="line"></span><br><span class="line">console.log(&quot;=== 签名生成结果 ===&quot;);</span><br><span class="line">console.log(&quot;时间戳:&quot;, result.timestamp);</span><br><span class="line">console.log(&quot;输入字符串:&quot;, result.input);</span><br><span class="line">console.log(&quot;MD5 签名:&quot;, result.signature);</span><br><span class="line">console.log(&quot;&quot;);</span><br><span class="line">console.log(&quot;=== 参数详情 ===&quot;);</span><br><span class="line">console.log(&quot;固定值 o:&quot;, result.details.fixedValue);</span><br><span class="line">console.log(&quot;Cookie c:&quot;, result.details.cookie);</span><br><span class="line">console.log(&quot;接口路径 r:&quot;, result.details.apiPath);</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://yh8567.github.io">江小白</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://yh8567.github.io/2026/05/25/js-reverse-engineering/">https://yh8567.github.io/2026/05/25/js-reverse-engineering/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://yh8567.github.io" target="_blank">江小白</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/JS%E9%80%86%E5%90%91/">JS逆向</a><a class="post-meta__tags" href="/tags/%E5%8F%8D%E8%B0%83%E8%AF%95/">反调试</a><a class="post-meta__tags" href="/tags/%E6%95%B0%E6%8D%AE%E8%A7%A3%E5%AF%86/">数据解密</a><a class="post-meta__tags" href="/tags/AES%E5%8A%A0%E5%AF%86/">AES加密</a><a class="post-meta__tags" href="/tags/RSA%E5%8A%A0%E5%AF%86/">RSA加密</a><a class="post-meta__tags" href="/tags/HMAC-SHA256/">HMAC-SHA256</a><a class="post-meta__tags" href="/tags/%E7%AD%BE%E5%90%8D%E8%AE%A4%E8%AF%81/">签名认证</a><a class="post-meta__tags" href="/tags/%E4%BB%A3%E7%A0%81%E6%B7%B7%E6%B7%86/">代码混淆</a><a class="post-meta__tags" href="/tags/CryptoJS/">CryptoJS</a></div><div class="post-share"><div class="social-share" data-image="/img/avatar.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related full-width" href="/2026/05/25/asp-access-database-injection/" title="ASP-SQL注入 — Access数据库注入实战"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">ASP-SQL注入 — Access数据库注入实战</div></div><div class="info-2"><div class="info-item-1">ASP-SQL注入-Access数据库（41）#ASP-默认安装-MDB数据库泄漏下载 由于大部分ASP程序与ACCESS数据库搭建，但ACCESS无需连接，都在脚本文件中定义配置好数据库路径即用，不需要额外配置安装数据库，所以大部分提前固定好的数据库路径如默认未修改，当攻击者知道数据库的完整路径，可远程下载后解密数据实现攻击。 从网页下载fyblog 3.0源码中，在文件conn.asp中可得到access数据库的默认加载路径   .mdb是access的后缀名 #ASP-中间件-CVE&amp;短文件&amp;解析&amp;写权限-HTTP.SYS（CVE-2015-1635）（27:15）1、漏洞描述 Http.sys是Microsoft Windows处理HTTP请求的内核驱动程序。HTTP.sys会错误解析某些特殊构造的HTTP请求，导致远程代码执行漏洞。成功利用此漏洞后，攻击者可在System帐户上下文中执行任意代码。 由于此漏洞存在于内核驱动程序中，攻击者也可以远程导致操作系统蓝屏。此次受影响的系统中，Windows 7、Windows 8、Windows Serv...</div></div></div></a></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/avatar.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">江小白</div><div class="author-info-description">信息安全 | 渗透测试 | 技术分享</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">6</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">41</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">2</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/yh8567"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/yh8567" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">路漫漫其修远兮，吾将上下而求索</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8F%8D%E8%B0%83%E8%AF%95%E7%BB%95%E8%BF%87%E6%A1%88%E4%BE%8B%E4%B8%80%EF%BC%9A"><span class="toc-number">1.</span> <span class="toc-text">反调试绕过案例一：</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95%E7%BD%91%E7%AB%99-https-www-aqistudy-cn"><span class="toc-number">1.1.</span> <span class="toc-text">测试网站  https:&#x2F;&#x2F;www.aqistudy.cn&#x2F;</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8F%8D%E8%B0%83%E8%AF%95%E7%BB%95%E8%BF%87%E6%A1%88%E4%BE%8B%E4%BA%8C%EF%BC%9A"><span class="toc-number">2.</span> <span class="toc-text">反调试绕过案例二：</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95%E7%BD%91%E7%AB%99%EF%BC%8C%E6%9C%AC%E5%9C%B0%E6%96%87%E4%BB%B6debug-html"><span class="toc-number">2.1.</span> <span class="toc-text">测试网站，本地文件debug.html</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%AF%B7%E6%B1%82%E6%95%B0%E6%8D%AE%E8%A7%A3%E5%AF%86%E6%A1%88%E4%BE%8B%E4%B8%80%EF%BC%9A"><span class="toc-number">3.</span> <span class="toc-text">请求数据解密案例一：</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95%E7%BD%91%E7%AB%99https-login-zhangin-com"><span class="toc-number">3.1.</span> <span class="toc-text">测试网站	https:&#x2F;&#x2F;login.zhangin.com&#x2F;</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%AF%B7%E6%B1%82%E6%95%B0%E6%8D%AE%E8%A7%A3%E5%AF%86%E6%A1%88%E4%BE%8B%E4%BA%8C%EF%BC%9A"><span class="toc-number">4.</span> <span class="toc-text">请求数据解密案例二：</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95%E7%BD%91%E7%AB%99https-auth-xincheng-com"><span class="toc-number">4.1.</span> <span class="toc-text">测试网站https:&#x2F;&#x2F;auth.xincheng.com&#x2F;</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%BF%94%E5%9B%9E%E6%95%B0%E6%8D%AE%E8%A7%A3%E5%AF%86%E6%A1%88%E4%BE%8B%EF%BC%9A"><span class="toc-number">5.</span> <span class="toc-text">返回数据解密案例：</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95%E7%BD%91%E7%AB%99-https-www-weibotop-cn-2-0"><span class="toc-number">5.1.</span> <span class="toc-text">测试网站:https:&#x2F;&#x2F;www.weibotop.cn&#x2F;2.0&#x2F;</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#sign%EF%BC%88%E7%AD%BE%E5%90%8D%EF%BC%89%E8%AE%A4%E8%AF%81%E9%80%BB%E8%BE%91%E6%A1%88%E4%BE%8B%E4%B8%80%EF%BC%9A"><span class="toc-number">6.</span> <span class="toc-text">sign（签名）认证逻辑案例一：</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95%E7%BD%91%E7%AB%99%EF%BC%9Ayakit%E9%9D%B6%E5%9C%BA%EF%BC%88%E5%89%8D%E7%AB%AF%E9%AA%8C%E8%AF%81%E7%AD%BE%E5%90%8D%E8%A1%A8%E5%8D%95HMAC-SHA256%EF%BC%89"><span class="toc-number">6.1.</span> <span class="toc-text">测试网站：yakit靶场（前端验证签名表单HMAC-SHA256）</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#sign%EF%BC%88%E7%AD%BE%E5%90%8D%EF%BC%89%E8%AE%A4%E8%AF%81%E9%80%BB%E8%BE%91%E6%A1%88%E4%BE%8B%E4%BA%8C%EF%BC%9A"><span class="toc-number">7.</span> <span class="toc-text">sign（签名）认证逻辑案例二：</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/05/25/js-reverse-engineering/" title="JS逆向复现记录 — 反调试绕过与数据加解密实战">JS逆向复现记录 — 反调试绕过与数据加解密实战</a><time datetime="2026-05-25T14:00:00.000Z" title="发表于 2026-05-25 22:00:00">2026-05-25</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/05/25/asp-access-database-injection/" title="ASP-SQL注入 — Access数据库注入实战">ASP-SQL注入 — Access数据库注入实战</a><time datetime="2026-05-25T13:00:00.000Z" title="发表于 2026-05-25 21:00:00">2026-05-25</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/05/25/xss-cross-site-scripting/" title="XSS跨站脚本攻击 — 原理、分类与利用实战">XSS跨站脚本攻击 — 原理、分类与利用实战</a><time datetime="2026-05-25T12:00:00.000Z" title="发表于 2026-05-25 20:00:00">2026-05-25</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/05/23/ssrf-attack-and-defense/" title="关于SSRF（服务端请求伪造）攻击与利用实战">关于SSRF（服务端请求伪造）攻击与利用实战</a><time datetime="2026-05-23T12:00:00.000Z" title="发表于 2026-05-23 20:00:00">2026-05-23</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/05/17/sql-blind-injection/" title="SQL盲注技术 — 布尔、时间、报错注入与CMS实战">SQL盲注技术 — 布尔、时间、报错注入与CMS实战</a><time datetime="2026-05-17T05:00:00.000Z" title="发表于 2026-05-17 13:00:00">2026-05-17</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2025 - 2026 By 江小白</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 8.1.1</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5-b1</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5-b1"></script><script src="/js/main.js?v=5.5.5-b1"></script><div class="js-pjax"></div><script>
+(() => {
+  const html = document.documentElement
+  const dayBgs = ['/img/白天图.png', '/img/白天图2.png']
+  const nightBgs = ['/img/夜晚图.png', '/img/夜晚图2.png']
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)] }
+
+  const saved = localStorage.getItem('theme') || 'dark'
+  html.setAttribute('data-theme', saved)
+  document.body.style.background = 'url(' + pick(saved === 'dark' ? nightBgs : dayBgs) + ') center center / cover no-repeat fixed'
+
+  const toggleBtn = document.querySelector('.nav-site-title')
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', (e) => {
+      e.preventDefault()
+      const cur = html.getAttribute('data-theme')
+      const next = cur === 'dark' ? 'light' : 'dark'
+      html.setAttribute('data-theme', next)
+      localStorage.setItem('theme', next)
+      document.body.style.background = 'url(' + pick(next === 'dark' ? nightBgs : dayBgs) + ') center center / cover no-repeat fixed'
+    })
+  }
+
+  const immersiveBtn = document.createElement('a')
+  immersiveBtn.id = 'immersive-btn'
+  immersiveBtn.title = '沉浸模式 — 隐藏页面元素，只看背景'
+  immersiveBtn.innerHTML = '<div class="mini-cat"><div class="mini-body"></div></div>'
+  document.body.appendChild(immersiveBtn)
+  immersiveBtn.addEventListener('click', () => {
+    document.body.classList.toggle('immersive')
+    immersiveBtn.style.opacity = document.body.classList.contains('immersive') ? '0.5' : '1'
+  })
+})()
+</script>
+<script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
