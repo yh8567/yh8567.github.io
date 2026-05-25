@@ -1,0 +1,482 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="dark"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>ASP-SQL注入 — Access数据库注入实战 | 江小白</title><meta name="author" content="江小白"><meta name="copyright" content="江小白"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#0d0d0d"><meta name="description" content="ASP-SQL注入-Access数据库（41）#ASP-默认安装-MDB数据库泄漏下载 由于大部分ASP程序与ACCESS数据库搭建，但ACCESS无需连接，都在脚本文件中定义配置好数据库路径即用，不需要额外配置安装数据库，所以大部分提前固定好的数据库路径如默认未修改，当攻击者知道数据库的完整路径，可远程下载后解密数据实现攻击。 从网页下载fyblog 3.0源码中，在文件conn.asp中可得到">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ASP-SQL注入 — Access数据库注入实战">
+<meta property="og:url" content="https://yh8567.github.io/2026/05/25/asp-access-database-injection/index.html">
+<meta property="og:site_name" content="江小白">
+<meta property="og:description" content="ASP-SQL注入-Access数据库（41）#ASP-默认安装-MDB数据库泄漏下载 由于大部分ASP程序与ACCESS数据库搭建，但ACCESS无需连接，都在脚本文件中定义配置好数据库路径即用，不需要额外配置安装数据库，所以大部分提前固定好的数据库路径如默认未修改，当攻击者知道数据库的完整路径，可远程下载后解密数据实现攻击。 从网页下载fyblog 3.0源码中，在文件conn.asp中可得到">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://yh8567.github.io/img/avatar.jpg">
+<meta property="article:published_time" content="2026-05-25T13:00:00.000Z">
+<meta property="article:modified_time" content="2026-05-25T04:44:20.374Z">
+<meta property="article:author" content="江小白">
+<meta property="article:tag" content="ASP">
+<meta property="article:tag" content="Access数据库">
+<meta property="article:tag" content="CVE-2015-1635">
+<meta property="article:tag" content="HTTP.sys">
+<meta property="article:tag" content="IIS解析漏洞">
+<meta property="article:tag" content="MSSQL">
+<meta property="article:tag" content="SQL注入">
+<meta property="article:tag" content="WebDAV">
+<meta property="article:tag" content="短文件名">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://yh8567.github.io/img/avatar.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "ASP-SQL注入 — Access数据库注入实战",
+  "url": "https://yh8567.github.io/2026/05/25/asp-access-database-injection/",
+  "image": "https://yh8567.github.io/img/avatar.jpg",
+  "datePublished": "2026-05-25T13:00:00.000Z",
+  "dateModified": "2026-05-25T04:44:20.374Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "江小白",
+      "url": "https://yh8567.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://yh8567.github.io/2026/05/25/asp-access-database-injection/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5-b1"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.1.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'ASP-SQL注入 — Access数据库注入实战',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><style>
+#loading-box #loading {
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0;
+  z-index: 9999; background-color: #1a1a2e; display: block;
+}
+#loading-box.loaded #loading { display: none; }
+.cat { position: relative; display: block; width: 15em; height: 100%; font-size: 10px; margin: auto; }
+.cat * { box-sizing: content-box; }
+.cat .head, .cat .foot, .cat .body, .cat .paw {
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; margin: auto;
+  border-radius: 50%; width: 15em; height: 15em;
+}
+.cat .body {
+  background-image: radial-gradient(transparent 0%, transparent 35%, #383c4b 35%, #383c4b 39%, #eda65d 39%, #eda65d 46%, #f2c089 46%, #f2c089 60%, #eda65d 60%, #eda65d 67%, #383c4b 67%, #383c4b 100%);
+}
+.cat .head:before, .cat .foot:before {
+  background-image: radial-gradient(transparent 0%, transparent 35%, #383c4b 35%, #383c4b 39%, #eda65d 39%, #eda65d 67%, #383c4b 67%, #383c4b 100%);
+}
+.cat .head:before {
+  content: ''; width: 100%; height: 100%; position: absolute; border-radius: 50%;
+  clip-path: polygon(100% 20%, 50% 50%, 70% -10%);
+  -webkit-clip-path: polygon(100% 20%, 50% 50%, 70% -10%);
+}
+.cat .head:after {
+  content: ''; width: 4.125em; height: 2.5em; position: absolute;
+  top: 0.8125em; right: 3.9375em;
+  background-image: linear-gradient(#1a1a2e 65%, transparent 65%), radial-gradient(#1a1a2e 51%, #383c4b 55%, #383c4b 68%, transparent 70%);
+  transform: rotate(-66deg);
+}
+.cat .head .face {
+  width: 5em; height: 3.75em; left: 9.0625em; top: 1.8125em; position: absolute; transform: rotate(-47deg);
+  background-image: radial-gradient(circle, #1a1a2e 0%, #1a1a2e 1.25em, transparent 1.25em, transparent 100%),
+    radial-gradient(circle, #383c4b 0%, #383c4b 0.875em, transparent 0.875em, transparent 1.25em, #1a1a2e 1.25em, #1a1a2e 1.375em, transparent 1.375em),
+    radial-gradient(circle, #383c4b 0%, #383c4b 0.875em, transparent 0.875em, transparent 1.25em, #1a1a2e 1.25em, #1a1a2e 1.375em, transparent 1.375em);
+  background-size: 3.75em 6.25em, 1.875em 1.875em, 1.875em 1.875em;
+  background-position: 0.625em -2.5em, 0.625em 2.5em, 2.25em 1.875em;
+  background-repeat: no-repeat;
+}
+.cat .foot:before, .cat .foot:after { content: ''; width: 100%; height: 100%; position: absolute; }
+.cat .foot:before {
+  border-radius: 50%;
+  clip-path: polygon(50% 50%, 0% 50%, 0% 25%);
+  -webkit-clip-path: polygon(50% 50%, 0% 50%, 0% 25%);
+}
+.cat .foot .tummy-end { width: 1.5em; height: 1.5em; position: absolute; border-radius: 50%; background-color: #f2c089; left: 1.1875em; top: 6.5625em; }
+.cat .foot .bottom { width: 2.1875em; height: 0.9375em; position: absolute; top: 4.875em; left: 0.75em; border: 0.375em solid #383c4b; border-bottom: 0; border-radius: 50%; transform: rotate(21deg); background: #eda65d; }
+.cat .hands, .cat .legs, .cat .foot:after { width: 0.625em; height: 1.5625em; position: absolute; border: 0.375em solid #383c4b; background-color: #eda65d; }
+.cat .hands { border-top: 0; border-radius: 0 0 0.75em 0.75em; }
+.cat .hands.left { top: 4.3em; left: 13.1875em; transform: rotate(-20deg); }
+.cat .hands.right { top: 5.125em; left: 10.975em; transform: rotate(-25deg); }
+.cat .legs { border-bottom: 0; border-radius: 0.75em 0.75em 0 0; }
+.cat .legs.left { top: 4.0625em; left: 3.125em; transform: rotate(25deg); }
+.cat .legs.right { top: 3.3125em; left: 0.75em; transform: rotate(22deg); }
+.cat .foot:after { width: .9em; height: 2.5em; top: 2.625em; left: 2.5em; z-index: -1; transform: rotate(25deg); background-color: #c6823b; border-bottom: 0; border-radius: 0.75em 0.75em 0 0; }
+.cat { animation: 2.74s linear infinite loading-cat; }
+.cat .body { animation: 2.74s linear infinite body; }
+.cat .foot { animation: 2.74s linear infinite foot; }
+.cat:hover, .cat:hover .body, .cat:hover .foot { animation-play-state: paused; }
+.cat:active, .cat:active .body, .cat:active .foot { animation-play-state: running; }
+@keyframes body {
+  0% { clip-path: polygon(50% 50%, 0% 50%, 0% 100%, 100% 100%, 100% 20%); }
+  10% { clip-path: polygon(50% 50%, 30% 120%, 50% 100%, 100% 100%, 100% 20%); }
+  20% { clip-path: polygon(50% 50%, 100% 90%, 120% 90%, 100% 100%, 100% 20%); }
+  40% { clip-path: polygon(50% 50%, 100% 45%, 120% 45%, 120% 50%, 100% 20%); }
+  50% { clip-path: polygon(50% 50%, 100% 45%, 120% 45%, 120% 50%, 100% 20%); }
+  65% { clip-path: polygon(50% 50%, 100% 65%, 120% 65%, 120% 50%, 100% 20%); }
+  80% { clip-path: polygon(50% 50%, 75% 130%, 120% 65%, 120% 50%, 100% 20%); }
+  90% { clip-path: polygon(50% 50%, -20% 110%, 50% 120%, 100% 100%, 100% 20%); }
+  100% { clip-path: polygon(50% 50%, 0% 50%, 0% 100%, 100% 100%, 100% 20%); }
+}
+@keyframes loading-cat {
+  0% { transform: rotate(0deg); }
+  10% { transform: rotate(-80deg); }
+  20% { transform: rotate(-180deg); }
+  40% { transform: rotate(-245deg); }
+  50% { transform: rotate(-250deg); }
+  68% { transform: rotate(-300deg); }
+  90% { transform: rotate(-560deg); }
+  100% { transform: rotate(-720deg); }
+}
+@keyframes foot {
+  0% { transform: rotate(-10deg); }
+  10% { transform: rotate(-100deg); }
+  20% { transform: rotate(-145deg); }
+  35% { transform: rotate(-190deg); }
+  50% { transform: rotate(-195deg); }
+  70% { transform: rotate(-165deg); }
+  100% { transform: rotate(-10deg); }
+}
+/* Random day/night backgrounds via JS */
+#web_bg { display: none; }
+/* Day/night banner switching */
+html[data-theme="light"] #page-header {
+  background-image: url('/img/白天banner.png') !important;
+}
+html[data-theme="dark"] #page-header {
+  background-image: url('/img/夜晚banner.png') !important;
+}
+/* Remove card/footer borders, hide footer */
+.card-widget, .recent-post-item, #page-header {
+  border: none !important; box-shadow: none !important;
+}
+#footer { display: none !important; }
+/* Immersive mode button - mini cat */
+#immersive-btn {
+  position: fixed; bottom: 90px; right: 24px; z-index: 9999;
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.4);
+  background: rgba(10,10,20,.7); cursor: pointer;
+  backdrop-filter: blur(8px); overflow: hidden;
+  box-shadow: 0 0 16px rgba(0,0,0,.5);
+  transition: transform .3s, box-shadow .3s;
+}
+#immersive-btn:hover { transform: scale(1.1); box-shadow: 0 0 24px rgba(0,198,255,.3); }
+#immersive-btn .mini-cat {
+  width: 100%; height: 100%; position: relative;
+}
+#immersive-btn .mini-cat .mini-body {
+  position: absolute; inset: 6px; border-radius: 50%;
+  background-image: radial-gradient(transparent 0%, transparent 30%, #383c4b 30%, #383c4b 34%, #eda65d 34%, #eda65d 44%, #f2c089 44%, #f2c089 58%, #eda65d 58%, #eda65d 65%, #383c4b 65%, #383c4b 100%);
+  animation: 12s linear infinite loading-cat;
+}
+body.immersive #page-header,
+body.immersive #nav,
+body.immersive #content-inner,
+body.immersive #footer,
+body.immersive #rightside { display: none !important; }
+</style>
+</style>
+<meta name="generator" content="Hexo 8.1.1"></head><body><div id="loading-box"><div id="loading"><div class="cat"><div class="body"></div><div class="head"><div class="face"></div></div><div class="foot"><div class="tummy-end"></div><div class="bottom"></div><div class="legs left"></div><div class="legs right"></div></div><div class="paw"><div class="hands left"></div><div class="hands right"></div></div></div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  window.addEventListener('load', () => {
+    setTimeout(preloader.endLoading, 800)
+  })
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', () => {
+      setTimeout(preloader.endLoading, 800)
+    }, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/avatar.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">5</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">32</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">江小白</span></a><a class="nav-page-title" href="/"><span class="site-name">ASP-SQL注入 — Access数据库注入实战</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">ASP-SQL注入 — Access数据库注入实战</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-05-25T13:00:00.000Z" title="发表于 2026-05-25 21:00:00">2026-05-25</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-05-25T04:44:20.374Z" title="更新于 2026-05-25 12:44:20">2026-05-25</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/Web%E5%AE%89%E5%85%A8/">Web安全</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h1 id="ASP-SQL注入-Access数据库（41）"><a href="#ASP-SQL注入-Access数据库（41）" class="headerlink" title="ASP-SQL注入-Access数据库（41）"></a>ASP-SQL注入-Access数据库（41）</h1><p>#ASP-默认安装-MDB数据库泄漏下载</p>
+<p>由于大部分ASP程序与ACCESS数据库搭建，但ACCESS无需连接，都在脚本文件中定义配置好数据库路径即用，不需要额外配置安装数据库，所以大部分提前固定好的数据库路径如默认未修改，当攻击者知道数据库的完整路径，可远程下载后解密数据实现攻击。</p>
+<p>从网页下载fyblog 3.0源码中，在文件conn.asp中可得到access数据库的默认加载路径</p>
+<!-- 这是一张图片，ocr 内容为：CONNSTR"PROVIDER-MICROSOFT.JET.OLEDB.4.0;DATA -"&SERVER.MAPPATH("DATABASE/#DATA.MDB") SOURCE CONNSTR CONN.OPEN -->
+<p><img src="/images/access-injection/1729056614406-b68ea942-1e33-40b0-a745-0a07d8fd5b69.png"></p>
+<p>.mdb是access的后缀名</p>
+<h2 id="ASP-中间件-CVE-短文件-解析-写权限"><a href="#ASP-中间件-CVE-短文件-解析-写权限" class="headerlink" title="#ASP-中间件-CVE&amp;短文件&amp;解析&amp;写权限"></a>#ASP-中间件-CVE&amp;短文件&amp;解析&amp;写权限</h2><h3 id="HTTP-SYS（CVE-2015-1635）（27-15）"><a href="#HTTP-SYS（CVE-2015-1635）（27-15）" class="headerlink" title="-HTTP.SYS（CVE-2015-1635）（27:15）"></a>-HTTP.SYS（CVE-2015-1635）（27:15）</h3><p>1、漏洞描述</p>
+<p>Http.sys是Microsoft Windows处理HTTP请求的内核驱动程序。HTTP.sys会错误解析某些特殊构造的HTTP请求，导致远程代码执行漏洞。成功利用此漏洞后，攻击者可在System帐户上下文中执行任意代码。</p>
+<p>由于此漏洞存在于内核驱动程序中，攻击者也可以远程导致操作系统蓝屏。此次受影响的系统中，Windows 7、Windows 8、Windows Server 2008 R2 和 Windows Server 2012所带的HTTP.sys驱动均存在一个远程代码执行漏洞，远程攻击者可以通过IIS 7（或更高版本）服务将恶意的HTTP请求传递给HTTP.sys驱动，通过发送恶意的HTTP请求导致远程代码执行或操作系统蓝屏</p>
+<p>:::info<br>条件：1.被测网站采用了windows平台中的IIS中间件架构。<br>          2.被检测的网站关闭了主机防火墙，且没有安装补丁</p>
+<p>:::</p>
+<p>2、影响版本</p>
+<p>Windows 7、Windows Server 2008 R2、Windows 8、Windows Server 2012、Windows 8.1 和 Windows Server 2012 R2</p>
+<p>3、漏洞利用条件</p>
+<p>安装了IIS6.0以上的Windows 7、Windows Server 2008 R2、Windows 8、Windows Server 2012、Windows 8.1 和 Windows Server 2012 R2版本</p>
+<p>4、漏洞复现（检测方法）</p>
+<p>1.通过<a target="_blank" rel="noopener" href="https://so.csdn.net/so/search?q=curl&spm=1001.2101.3001.7020">curl</a>命令实现<br>curl IP -H “Host: irrelevant” -H “Range: bytes&#x3D;0-18446744073709551615”</p>
+<!-- 这是一张图片，ocr 内容为：(ROOT&KALI)-[/HOME/KALI/DESKTOP] -H"RANGE:BYTES:0-1844674407 CL HTTP://192.168.122.128 -H "HOST:192.168.122.128" # CURL HT 3709551615" ://WWW.W3.ORG/TR/HTML4/STRICT.D <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN""HTTP://WON, TD" <HTML><HEAD><TITLE>REQUESTED RANGE NOT SATISFIABLE</TITLE> <META HTTP-EQUIV:"CONTENT-TYPE" CONTENT:"TEXT/HTML; CHARSET-US-ASCII"></HEAD> NOTSATISFIABLE</H2> <BODY><H2>REQUESTED RANGE NO <HR><P>HTTP ERROR 416. THE GE IS NOT SATISFIABLE.<P> REQUESTED RANGE </BODY></HTML> -->
+<p><img src="/images/access-injection/1729138478866-2fcb3d4f-8ddf-40ef-bf38-a2c2aee797c6.png"></p>
+<p>根据是否有 “Requested range not satisfiable”来判断是否存在漏洞</p>
+<ol start="2">
+<li>控制台分别输入指令</li>
+</ol>
+<p>msfconsole</p>
+<!-- 这是一张图片，ocr 内容为：(ROOT@KALI)-[/HOME/KALI/DESKTOP] VERGE_1.3.8_AMD6 VERGE.DESKTOP 4.DEB MSFCONSOLE USED FOR IP OPTIONS SET LHOST NETASPLOIT TIP: NETWORK ADAPTER NAMES CAN BE USED FOR THO GET-PIP.PY -->
+<p><img src="/images/access-injection/1729138926431-11cae818-27d9-4ef2-95da-14fed6b30cf0.png"></p>
+<p>use auxiliary&#x2F;dos&#x2F;http&#x2F;ms15_034_ulonglongadd（使用的模块类型，以后内网会使用到）</p>
+<!-- 这是一张图片，ocr 内容为：MSF6 > USE AUXILIARY/DOS/HTTP/MS15_034-ULONGLONGADD MSF6 AUXILIARY(DOS/HTTP/MS15_034_ULONGTONGADD) SHOW OPTIONS MODULE OPTIONS (AUXILIARY/DOS/HTTP/MS15 034-ULONGLONGADD): CURRENT SETTING NAME REQUIRED DESCRIPTION PROXIES A PROXY A PROXY CHAIN OF FORMAT TYPE:HOST:PORT[,TYPE:HOST:PORT][...] NO THE TARGET HOST(S), SEE HTTPS://DOCS,METASPLOIT.COM/DOCS/USING-METASPLOIT/BASICS/U RHOSTS YES SING-METASPLOIT.HTML THE TARGET PORT(TCP) 80 RPORT VES FALSE SSL NEGOTIATE SSL/TLS FOR OUTGOING CONNECTIONS NO URI TO THE SITE (E.G /SITE/) OR A VATID FILE RESOURCE E.G /WELCOME.PNG) TARGETURI NO THREADS THE NUMBER OF CONCURRENT THREADS (MAX ONE PER HOST) YES HTTP SERVER VIRTUAL HOST VHOST OU GET-PIP.PY VIEW THE FULL MODULE INFO WITH THE INFO, OR INFO -D COMMAND. MSF6 AUXILIARY(DOS/HTTP/MS15_034_ULONGLONGADD) -->
+<p><img src="/images/access-injection/1729138957995-7056bd42-77a1-497f-b2db-b2d71ab431cb.png"></p>
+<p>（RHOSTS为目标地址，RPORT为目标端口）</p>
+<p>对目标地址，端口进行设置“set rhosts xx.xx.xx.xx”“set rport xx”</p>
+<!-- 这是一张图片，ocr 内容为：MSF6 AUXILIARY(DOS/HTTP/MS15_034_ULONGTONGADD) OPTIONS SHOW MODULE OPTIONS (AUXILIARY/DOS/HTTP/MS15-034-ULONGLONGADD); CURRENT SETTING REQUIRED DESCRIPTION NAME IN OF FORMAT TYPE:HOST:PORT[,TYPE:HOST:PORT][....] PROXIES A PROXY CHAIN OF FO NO 192.168.122.128 THE TARGET HOST(S), SEE HTTPS://DOCS.METASPLOIT.COM/DOCS/USING-METASPLOIT/BASICS/U RHOSTS YES SING-METASPLOIT.HTML THE TARGET PORT (TCP) RPORT 80 YES NEGOTIATE SSL/TLS FOR OUTGOING CONNECTIONS FALSE SSL NO E(E.G/ /WELCOME.PNG) TARGETURI URI TO THE SITE (E.G /SITE/)OR A VALID FILE RESOURCE NO THREADS 1 THE NUMBER OF CONCURRENT THREADS (MAX ONE PER HOST) YES HTTP SERVER VIRTUAL HOST VHOST NO VIEW THE FULL MODULE INFO WITH THE INFO, OR INFO -D COMMAND. MSF6 AUXILIARY(DOS/HTTP/MS15_034_ULONGLONGADD) > RUN DOS REQUEST SENT SCANNED 1 OF 1 HOSTS (100% COMPLETE) AUXILIARY MODULE EXECUTION COMPLETED -->
+<p><img src="/images/access-injection/1729139417236-c94fddef-1488-45ef-9ea5-45ee06ecfcf5.png"></p>
+<p>run，运行</p>
+<!-- 这是一张图片，ocr 内容为：BEEN BEEN DETECTED SHUT DOWN TO PREVENT DAMAGE HAS PROBLEM AND HAS NDOWS TO COMPUT ER YOUR THIS I IF E FIRST TIME YOU'VE SEEN THIS STOP ERROR SCREEN, IS THE THIS SCREEN APP 工卡 RESTART YOUR APPEARS AGAIN, FOLLOW COMPUT ER. THESE STEPS IF A DRIVER IS CHECK TO BE SURE YOU HAVE ADEQUATE DISK K SPACE. IF IN HDENTIFIED IN THE STOP MESSAGE, DISABLE THE DRIVER OR CHECK WITH THE MANUFACT CHANGING VIDEO FOR DRIVER UPDATES. TRY ACTUR ER ADAPTERS.  HARDWARE VENDOR CHECK WITH OR UPDATES. ANY BIOS DISABLE YOUR SUCH AS CACHIN BIOS MEMORY ING IF YOU SHADOW1NG. OPTIONS NEEC OR O REMOVE OR DISAK SABLE COMPONENTS, TO USE SAFE RESTART MODE TO R YOUR PRESS F8 TO SELECT AND THEN ACVANCED STARTUP OPT1 COMPUTER. ONS SAFE MODE. SELECT INFORMATION: FECHNICAL OX0000097E (OXFFFFFFFFC900005.0XFFFFF880926ACF25.0XF25,OXFF88092C93808 WWWSTOP:OX XFFFFF88002C93130) HTTP:SYS - ADDR ESS EFEEFB80926ACF25 BASE AT FFFFFFB80026A3000: DAT ESTAML 4CE793CE COLLECTING DATA FOR CRASH DUMP INITIALIZIR DISK FOR CRASH DUMP ING -->
+<p><img src="/images/access-injection/1729139464145-bd056c02-811f-4e37-a15b-f86614e65e38.png"></p>
+<!-- 这是一张图片，ocr 内容为：WINDOWS错误恢复 ,未成功关闭.如果这是由于系统无响应,或者是为保护数据 WINDOWS 而关闭系统,您也许能够通过从以下菜单中选择"安全模式"配置进行恢复: (使用箭头键以突出显示您的选择.) 安全模式 网络安全模式 带命令提示符的安全模式 正常启动WINDOWS 自动选择突出显示选择之前的秒数: 23 描述:使用常规设置启动 WINDOWS. ENTER选择 -->
+<p><img src="/images/access-injection/1729139498951-7b630f14-54fe-42b2-b880-353c24bdbdd9.png"></p>
+<p>目标进行蓝屏，重启</p>
+<h2 id="IIS短文件（38-17）主要目的为了获取-mdb文件的路径，再获取访问"><a href="#IIS短文件（38-17）主要目的为了获取-mdb文件的路径，再获取访问" class="headerlink" title="-IIS短文件（38:17）主要目的为了获取.mdb文件的路径，再获取访问"></a>-IIS短文件（38:17）主要目的为了获取.mdb文件的路径，再获取访问</h2><p>1、此漏洞实际是由HTTP请求中旧DOS 8.3名称约定(SFN)的代字符(~)波浪号引起的。它允许远程攻击者在Web根目录下公开文件和文件夹名称(不应该可被访问)。攻击者可以找到通常无法从外部直接访问的重要文件,并获取有关应用程序基础结构的信息。</p>
+<p>2、漏洞成因:</p>
+<p>为了兼容16位MS-DOS程序,Windows为文件名较长的文件(和文件夹)生成了对应的windows 8.3短文件名。在Windows下查看对应的短文件名,可以使用命令dir &#x2F;x</p>
+<p>3、短文件名特征：<br>      只显示前6位的字符,后续字符用~1代替。其中数字1是可以递增。如果存在文件名类似的文件,则前面的6个字符是相同的,后面的数字进行递增</p>
+<!-- 这是一张图片，ocr 内容为：ATOR\桌面的目录 C:\DOCUNENTS AND SETTINGS VADNINI <DIR> 12:19 2019-07-21 2019-07-21 12:19 <DIR> 12:18 BBBBBB2.TXT 2019-07-21 BBBBBBB123456.TXT 0 BBBBB~1.TXT BH 2019-07-21 12:18 HBBBBBBBBB.TXT BBBBBBB~3.TXT HBBBBBCCCCC.TXT 12:18 2019-07-21 3 个音集 可用字节 40,26?190,272 -->
+<p><img src="/images/access-injection/1729141120272-1bc526a5-5091-440c-b8b2-16779ef44275.png"></p>
+<pre><code>   后缀名最长只有3位,超过3位的会生成短文件名,且后缀多余的部分会截断。
+</code></pre>
+<!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/access-injection/1729141234330-1dec863d-e920-412f-b551-9166634ed3d2.png"></p>
+<pre><code>      所有小写字母均转换成大写的字母
+
+      长文件名中包含多个”.”的时候,以文件最后一个”.”作为短文件名的后缀
+</code></pre>
+<!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/access-injection/1729141282020-e17967b3-7297-47c4-bffc-b367709334f8.png"></p>
+<pre><code>     长文件名前缀/文件夹名字符长度符合0-9和A-Z、a-z范围且需要大于等于9位才会生成短文件名,如果包含空格或者其他部分特殊字符,不论长度均会生成短文件
+</code></pre>
+<!-- 这是一张图片，ocr 内容为： -->
+<p><img src="/images/access-injection/1729141303271-b70e4637-d010-4852-b8a7-294b50489180.png"></p>
+<p>4、应用场景：</p>
+<p>后台路径获取，数据库文件获取，其他敏感文件获取等</p>
+<p>5、利用工具： </p>
+<p><a target="_blank" rel="noopener" href="https://github.com/irsdl/IIS-ShortName-Scanner">https://github.com/irsdl/IIS-ShortName-Scanner</a> （Java环境）</p>
+<p><a target="_blank" rel="noopener" href="https://github.com/lijiejie/IIS_shortname_Scanner%EF%BC%88python%E7%8E%AF%E5%A2%83%EF%BC%89">https://github.com/lijiejie/IIS_shortname_Scanner（python环境）</a></p>
+<h1 id="IIS文件解析"><a href="#IIS文件解析" class="headerlink" title="-IIS文件解析"></a>-IIS文件解析</h1><h3 id="IIS-6-解析漏洞"><a href="#IIS-6-解析漏洞" class="headerlink" title="IIS 6 解析漏洞"></a>IIS 6 解析漏洞</h3><p>:::info<br>注：对后门连接，如1.asp，利用工具哥斯拉</p>
+<p>首先生成一个后门规定是什么文件</p>
+<!-- 这是一张图片，ocr 内容为：O X 哥斯拉 V4.01 BEICHENDREAM GITHUB.HTTPS://GITHUB.COM/BEICHENDREAM/GODZILLA 目标管理配置关于 插件 ID 分组 PROXYTYPE UPDATETIME CREATETIME URL CRYPTION REMARK PAYLOAD ENCODING 9D23EB6D-8D03-4F71-B2.... HTTP//192.168.3.2:89/1.8M NO.PROXY 2024-10-21 15:44:56 UTF-8 ASPDYNAMICPAYLOAD 备注 ASP EVAL BASE64 2024-10-21 15:44:56 GENERATESHELL 密码 PASS 密钥 KEY 有效载荷 ASPDYNAMICPAYLOAD ASP EVAL BASE64 加密器 取消 生成 共有0组所有成员数:1当前组是:/当前组成员致:1 -->
+<p><img src="/images/access-injection/1729497018243-9a99efbb-d22c-4b6c-99c7-8a47dd5f8554.png"></p>
+<p>想办法上传到网站目录之中</p>
+<!-- 这是一张图片，ocr 内容为：SWF 文件 2013-10-13 18:04 索引服务 19 KB 国国 BCASTR31.SWF ASP 文件 2013-10-13 18:04 1 KB 消息队列 点 BCASTR.ASP ASP 文件 A 2 KB 2013-10-13 18:04 INTERNET信息服务(IS) END.ASP 应用程序池 A ASP 文件 国 1 KB 2013-10-13 18:04 FOOT.ASP 网站 ASP 文件 2 KB 片 2013-10-13 18:04 FUN.ASP 默认网站 凡 2 KB 2013-10-13 18:04 ASP 文件 GETCODE.ASP UPLOADPARSING 14KB ASP 文件 片 2013-10-13 18:04 INDEX.ASP 国田国田田田田田田田 DATABACKUP 5K ASP 文件 A 2013-10-13 18:04 NNEWS.ASP DATABACKUP.AS A 5 K ASP 文件 2013-10-13 18:04 HEWSDETAIL.ASP EDITOR 12KB ASP文件 2013-10-13 18:04 A ONLINE.ASP ETST.ASP A ASP 文件 2013-10-13 18:04 2 KB PIAOFU.ASP LMAGES 凡 ASP 文件 5 KB 2013-10-13 18:04 PIC.ASP JS ASP 文件 3 KB A 2013-10-13 18:04 QQSERVICES.ASP SEXYIMAGES ASP 文件 A 2013-10-13 18:04 KB RIGHT.ASP TCBASE SWFOBJECT. JS T KB JSCRIPT SCRIPT 2013-10-13 18:04 A TCNET ASP 文件 2013-10-13 18:04 A 1 KB TCCORN.ASP UPFILE 田田田田田田田 凡 ASP 文件 2013-10-13 18:04 5 KB TOP.ASP POWEREASY KB A ASP 文件 2013-10-13 18:04 SITEFACTORY.STAN TOS.ASP GIF 图像 点 UPFILE201381121414141158... 2013-10-13 18:04 KB WORDPRESS-3.1.4 ASP 文件 ASPCHECK A 3KB 2013-10-13 18:04 UPFILE.ASP GIF 图像 PHPINFO A 3KB 2013-10-13 18:04 UPFILE.ASP;.20138121833... FYB1OGS_3.0 凡 2013-10-13 18:04 2 K ASP 文件 UPLOAD.ASP BWAPP 10 KB INC 文件 UPLOAD.INC A 2013-10-13 18:04 WEB服务扩展 3 KB GIF 图像 A 2013-10-13 18:04 XX.ASP;201395194054329. 复件INDEX.ASP 14 KB ASP 文件 2013-10-13 18:04 点 ASP 文件 5KB 复件 TOP.ASP 2013-10-13 18:04 A ASP 文件 2024-10-21  15:38 点 1 KB 1.ASP -->
+<p><img src="/images/access-injection/1729497070610-fc58c102-d39f-4f97-989e-7065b7428ab2.png"></p>
+<p>对后门进行访问测试，并且连接</p>
+<!-- 这是一张图片，ocr 内容为：192.168.3.2:89/1ASP 中中金龟 不安全 点此搜索 192.168.3.2:89/1.ASP 关于插件 配营 目标  管理 哥斯拉 V4.01B V4.01 BY:BEICHENDREAM GITHUB-HTTPS://GITHUB.COM/BEICHENDREAM/GODZILLA 每分组 ID CREATETIME UPDATE TIME URL PAYLOAD REMARK X 口 SHELL SETTING 2024-10-2115:44:56 备注 2024-10-2115:44:56 ASPDYNAMICPAYLD 9D23EB6D-8D03-4F71-B2..  HTTP://192.168.2:89/1.0 请求配置 基础配置 URL HTTP://192.168.3.2:89/1.ASP 富码 密钥 连接超时 3000 读取超时 60000 代理主机 127.0.0.1 代理输口 8888 督注 备注 GROUP 代理类型 NO.PROXY 编码 UTF-8 有效配荷 ASPDYNAMIC.PAYLOAD 加密器 ASP EVAL BASE64 测试连接 添加 共有0组所有成员数:1当前组是:当前组成员数:1 -->
+<p><img src="/images/access-injection/1729497169246-eee01e07-6fdb-4bbd-8379-d21cf4f1debc.png"></p>
+<p>最后，进入管理网站文件</p>
+<!-- 这是一张图片，ocr 内容为：ASE64TP://192168,2:89/L SSP PSYLOAD.ASPDYNAMICPSYLOSD CRYPBIORSASP EVAL BASE64 OPENCACHETRUE USECACHE 甚础信息命令执行文件管理改据库管理络记网络详情据件标签管理 AEVALCODE PORTSCAN LOGON USER: PATH_INFO://1.ASP PATH TRANSLATED ; C:\INETPUB\INWROOT\IS-FILEPARSING\1.5SP QUERY STRING: REMOTE ADDR:192.168.3.1 RENOTE_HOST:192.168.3.1 REMOTE USER: REQUEST METHOD:POST SCRIPT NAME://1.ASP SERVER NAME:192.168.3.2 SERVER PORT:89 SERVER PORT SECURE:0 SERVER PROTOCOL:HTTP/1.1 SERVER SOFTWARE:MICROSOFT-IIS/6.0 URL://1.ASP HTTP_CONNECTION ; KEEP-ALIVE HTTP CONTENT LENGTH:4116 HTTP CONTENT_TYPE : SPPLICOTION/X-WIN-FORM-URLENCODED HITP ACCEPT : TEXT/HTML,APPLICATION/XHTML+XML,APPLICATION/ML;G-0.9,INAGE/WEBP,"/*/*IG-0.8 HTTP ACCEPT LANGUAGE ;ZH-CIL,ZH;Q:9.5,ZH-TH-THIQW0.7,ZH-HXIQIEN-US;QUS;QU8.3,EN:Q2 HTTP COOKIE : ASPSESSIONIDACRSRARR-HIHJCOADBFD3PIEGF JIOHGCO; HTTP HOST :192.168.3.2:89 HTTP.USER.AGENT:: NOZILLA/5. (WINDOUS UT 10.9; WING4; WING4; X64; RVIB4.0) GECKO/201 FIREFOX/64,0 SYSTENROOT:C:\WINDOWS WINDIR:C:\WINDONS COMSPEC:C:\WINOOWS\SYSTEM32\CMD.EXE TENP:C:\WINDOWS\TENP TMP:C:\WINDOUS\TEMP NUNBER OF_PROCESSORS : 4 OS:WINDOWS NT OS2LIBPATH :  %OS2LIBPATH% PATHEXT : .COM:.EXE;.BAT:.CHD;.VBS;.VBE;.JS:.JSE;.HSF;.WSH:.PSCI PROCESSOR ARCHITECTURE: X86 PROCESSOR IDENTIFIER : X86 FANILY 6 HODEL 154 STEPPING 3, GENUINEINTEL PROCESSOR LEVEL:6 PROCESSOR REVISION:9A03 -->
+<p><img src="/images/access-injection/1729497217734-473d7808-175d-4fb9-b792-8d1036b66fae.png"></p>
+<!-- 这是一张图片，ocr 内容为：ALTHTTP//192168 32:89//1 SSP PAYLOSDASPLYNAMICPAYLOAD CRYPBONIASP EVAL-BASE64 OPENCACHETRVE UTECACHEF 文件管理敌据库管理笔记网络洋情据件标签管理AEVALCODE 基础信息命令执行 PORTSCAN C://NETPUB/WWWROOT/1IS-FILEPARSING/ DISK LASTMODIFIED ICON SIZE NAME PERMISSION INETPUB WWWROOT 2013-10-13 18:04:45 16 DATABACKUP 4.00KB LIS-FILEPARSING 16 2013-10-13 18:04:45 4.00KB DATABACKUP.ASP DATABACKUP 16 2013-10-13 18:04:45 4.00KB EDITOR 16 2013-10-13 18:04:45 4.00KB EDITOR ETST.ASP ETST.ASP 16 4.00KB 2013-10-13 18:04:45 IMAGES IMAGES 16 JS 2013-10-13 18:04.45 4.00KB 16 2013-10-13 18:04:45 4.00KB SEXYIMAGES SEXYIMAGES TCBASE 16 2024-10-21 15:06:53 4.00KB TCBASE TCNET 16 4.00KB 2013-10-13 18:04:45 TCNET UPFILE 16 UPFILE 4.00KB 2013-10-13 18:04:45 团 32 26 2024-10-21 15:38:35 1.ASP 园 32 2023-5.18  25:05 1.TXT 2023-5-18  20:20 2.TXT 2013-10-13 18:04:30 20139519454646081.GIF 2.16KB 2013-10-13 18:04:30 2.28KB ARTICLE.ASP 564 2013-10-13 18:04:30 BCASTR.ASP 执行 文件屋性 大文件下载 远程下载 刚新 删除文件 新建文件 大文件上传 移动 上传 复制 新建文件夹 复制绝对路径 下载 -->
+<p><img src="/images/access-injection/1729497234971-91436948-9060-4fa2-a52f-27db2a0c4c7e.png"></p>
+<p>:::</p>
+<p>1、该版本默认会将*.asp;.jpg 此种格式的文件名，当成asp解析（可以理解为;.会对后缀格式进行注释，从而解析成asp）logo.asp;.jpg</p>
+<p>当我们对原本1.asp文件格式进行修改，修改成1.asp;.jpg，会发现系统判断是为图片类型</p>
+<!-- 这是一张图片，ocr 内容为：应用程序池 FOOT.ASP ASP KB 网站 FUNASP 默认网站 GETCODE.ASP KB UPLOADPARSING ASP 14 KB INDEX.ASP 园田田田田田田田田田 DATABACKUP 5KB ASP NEWS.ASP DATABACKUP.AS ASP 5KB NEWSDETAIL.ASP EDITOR ASP 12 KB ONLINE.ASP ETST.ASP 2 KB ASP PIAOFU.ASP LMAGES 5 KB ASP 文 PIC.ASP JS KB ASP 文 UGSERVICES.ASP SEXYIMAGES KB ASP RIGHT.ASP TCBASE S KB JSCRI SWFOBJECT. JS TCNET ASP KB TCCONNASP UPFILE 回 5KB ASP TOP.ASP POWEREASY 1 KB ASP SITEFACTORY.STAN TOS.ASP GIF 3KB UPFILE20138112141411158... WORDPRESS-3.1.4 ASP 3 KB UPFILE.ASP ASPCHECK PHPINFO GIF 3KB UPFILE.ASP;20138121833... FYBLOGS_3.0 2 KB ASP UPLOAD.ASP BWAPP UPLOAD.INC 10 KB INC WEB服务扩展 GIF  医 XX.ASP;201395194054329... 3 KB 复件INDEX.ASP ASP  14 KB 复件TOP.ASP ASP 5 KB JPEG KB 1.ASP:JPG -->
+<p><img src="/images/access-injection/1729497688744-a919278f-1a5b-4c62-9862-aea2974cf5f5.png"></p>
+<p>但是当我们去测试连接时会发现，测试连接成功，所以*.asp;.jpg 此种格式的文件名，便会被解析成asp格式</p>
+<!-- 这是一张图片，ocr 内容为：目标管理配置 哥斯拉 V4.01 BEICHENDREAM GITHUBSHTTPSHTTPS://GITHUB.COM/BCICHENDREAM/GODZILLA 关于 播件 ID UPDATETIN PAYLOAD CREATETIME REMARK O X SHELL SETTING 基础配置 请求配置 URL HTTP://192.168.3.2:89/1.ASP;IPG 密码 PASS 密钥 KEY 提示 3000 连接超时 SUCCESS! 60000 读取超时 代理主机 127.0.0.1 确定 代理第口 8888 备注 备注 GROUP 代理类型 NO PROXY 编码 UTF-8 ASPDYNAMICPAYLOAD 有效载荷 加密器 ASP EVAL BASE64 添加 测试连接 -->
+<p><img src="/images/access-injection/1729497780182-e14425ff-621c-4123-9125-5eb8da7257db.png"></p>
+<p>2、该版本默认会将*.asp&#x2F;目录下的所有文件当成Asp解析。（将网站目录下的文件夹后缀修改成.asp，不管在文件夹内文件格式怎样，会当成.asp文件解析执行）xx.asp&#x2F;logo.jpg</p>
+<p>我们将1.asp文件改成jpg格式，新建文件夹修改成1.asp</p>
+<!-- 这是一张图片，ocr 内容为：名称 ASP DATABACKUP DATABACKUP.AS EDITOR -->
+<p><img src="/images/access-injection/1729497991849-1625728e-dc0c-49f2-bf68-caeecee89cf2.png"><!-- 这是一张图片，ocr 内容为：名称 1.JPG 路英 和组 和警报 器 --><br><img src="/images/access-injection/1729498010105-a632c80c-1ec4-4007-baa6-cbee2a832982.png"></p>
+<!-- 这是一张图片，ocr 内容为：目标管理配置关于插件 哥斯拉 V4.01 BEICHENDREAM GITHUB/HTTPSS//GITHUB.COM/BCICHENDREAM/GODZILLA 分组 UPDATETIME CREATETIME PAYLOAD SHELL SETTING 请求配置 基础配置 URL TTP://192.168.3.2:89/1.ASP/1.IPG 密码 PASS 密钥 KEY 连接超时 3000 提示 读取超时 代理主机 代理第口 备注 确定 GROUP 代理类型 NO PROXY 编码 UTF-8 有效载荷 ASPDYNAMICPAYLOAD 加密器 ASP EVAL BASE64 添加 测试连接 -->
+<p><img src="/images/access-injection/1729521437419-e3cc110c-2f25-4e94-a376-957b76aa63ba.png"></p>
+<h3 id="IIS-7-x-解析漏洞"><a href="#IIS-7-x-解析漏洞" class="headerlink" title="IIS 7.x 解析漏洞"></a>IIS 7.x 解析漏洞</h3><p>在一个文件路径(&#x2F;xx.jpg)后面加上&#x2F;xx.php会将&#x2F;xx.jpg&#x2F;xx.php 解析为php文件</p>
+<p>应用场景：配合文件上传获取Webshell</p>
+<h3 id="IIS写权限"><a href="#IIS写权限" class="headerlink" title="-IIS写权限"></a>-IIS写权限</h3><p>IIS&lt;&#x3D;6.0 目录权限开启写入开启WebDAV，设置为允许</p>
+<!-- 这是一张图片，ocr 内容为：UPLOADPARSING 属性 目录安全性 HTTP 头 自定义错误 ASPNET 主目录 网站 ISAPI筛选器 文档 性能 此资源的内容来自: 此计算机上的目录@) 另一台计算机上的共享(S) 重定向到URL@) 本地路径(C): C:LINETPUBLWWWROOTLIIS-FILEPARSIR 浏览(.. 脚本资源访问(T) 记录访问() 索引资源() 读取(() 写入() 目录浏览( 应用程序设置 应用程序名(): 默认应用程序 册除( <UPLOADPARSING> 开始位置: 配置(G)... 执行权限(): 脚本和可执行文件 卸载() 应用程序池(): DEFAULTAPPOOL 取消 帮助 应用(( 确定 -->
+<p><img src="/images/access-injection/1729412136808-c915073c-6433-4f4b-a669-c36eaf5558e9.png"></p>
+<p>开启WebDAV，设置为允许</p>
+<!-- 这是一张图片，ocr 内容为：江具 事件查看器 状况 WEB服务扩展 共享文件夹 禁止 所有未知CGI扩展 本地用户和组 所有未知ISAPI扩展 禁止 允许 生能日志和警报 允许 ACTIVE SERVER PAGES 设备管理器 禁止 允许 ASP.NET V1.1.4322 允许 属性 ASP.NET V2.0.50727 可移动存储 允许 FASTCGI HANDL ER 滋盘碎片整理程序 禁止 INTERNET数据连接器 滋盘管理 任务 允许 WEBDAY 和应用程序 在服务器端的包含文件 禁止 电话服务 服务 添加一个新的WEB服务扩展 YM工 控制 SQLSERVER配置管理器 对特定的应用程序允许所有 WEB 索引服务 服务扩展 消息队列 INTERNET信息服务(IS)管理器 禁止所有 WEB服务扩展 应用程序池 网站 打开帮助 默认网站 UPLOADPARSING 中国田田田田田 POWEREASY SITEFACTORY.STANDARD WORDPRESS-3.1.4 ASPCHECK PHPINFO FYB1OGS 3.0 BWAPP WEB服务扩展 -->
+<p><img src="/images/access-injection/1729412187825-491391f2-dfc1-4638-85b5-cf6cc4371b25.png"></p>
+<p>两点共同造成安全问题：</p>
+<p>利用Postman应用上传文件，xxx.xxx.xxx.xxx&#x2F;80&#x2F;1.txt 是目标ip和端口信息以及文件</p>
+<!-- 这是一张图片，ocr 内容为：X POSTMAN FLE HELP VIEW 章 REPORTS EXPLORE WORKSPACES SIGN IN SEARCH POSTMAN HOME CREATE ACCOUNT & WORKING LOCALLY IN SCRATCH PAD. SWITCH TO A WORKSPACE X SCRATCH PAD NO ENVIRONMENT NEW IMPORT PUT XXX.XXX.XXXXXX/8... OVERVIEW 四 SAVE V XXX.XXX.XXX.XXX/80/1.TXT COLLECTIONS SEND PUT XXX.XXX.XXX.XXX/80/1.TXT 品 APIS SETTINGS AUTHORIZATION PRE-REQUEST SCRIPT TESTS BODY HEADERS(8) PARAMS COOKIES 回 GRAPHQL TEXT BINARY X-WWW-FORM-URLENCODED TAW FORM-DATA NONE ENVIRONMENTS A'DA'DA YOU DON'T HAVE ANY COLLECTIONS MOCK SERVERS COLLECTIONS LET YOU GROUP RELATED REQUESTS, MAKING THEM EASIER TO ACCESS AND RUN. MONITORS CREATE COLLECTION HISTORY RESPONSE CLICK SEND TO GET A RESPONSE R王 TRASH CONSOLE RUNNER FIND AND REPLACE -->
+<p><img src="/images/access-injection/1729412516297-3992f0aa-108c-4eed-8311-49edc9010a65.png"></p>
+<p>参考利用：<a target="_blank" rel="noopener" href="https://cloud.tencent.com/developer/article/2050105">https://cloud.tencent.com/developer/article/2050105</a></p>
+<h3 id="ASP-SQL注入-SQLMAP使用-ACCESS注入"><a href="#ASP-SQL注入-SQLMAP使用-ACCESS注入" class="headerlink" title="#ASP-SQL注入-SQLMAP使用&amp;ACCESS注入"></a>#ASP-SQL注入-SQLMAP使用&amp;ACCESS注入</h3><p>:::info<br>重新定义：SQL注入 对用户的输入的数据没有过滤 导致重新定义SQL执行（攻击者定义想要的执行结果语句）</p>
+<p>由于这个SQL语句是数据中执行，什么数据库什么SQL语言据或有什么SQL执行功能 由数据库类型决定</p>
+<p>正因为此，所以说注入叫做数据库注入，得区分数据库类型</p>
+<p>输入数据，对数据进行数据查询，有报错，代表有注入</p>
+<p>但是并不是所有的报错都是有注入，那是因为有容错页面（404页面，那是因为代码的逻辑设置，并不代表有注入）</p>
+<p>:::</p>
+<p>ACCESS数据库无管理帐号密码，顶级架构为表名，列名（字段），数据，所以在注入猜解中一般采用字典猜解表和列再获取数据，猜解简单但又可能出现猜解不到的情况，由于Access数据库在当前安全发展中已很少存在，故直接使用SQLMAP注入，后续再说其他。</p>
+<p>python sqlmap.py -u “” –tables &#x2F;&#x2F;获取表名</p>
+<p>python sqlmap.py -u “” –cloumns -T admin &#x2F;&#x2F;获取admin表名下的列名</p>
+<p>python sqlmap.py -u “” –dump -C “” -T admin &#x2F;&#x2F;获取表名下的列名数据</p>
+<h2 id="番外"><a href="#番外" class="headerlink" title="番外"></a>番外</h2><p>这两天对于虚拟机网络配置的事终于有了眉目，这便是我的成果，但美中不足的是，在访问外部网络如ping baidu.com迎来的结果是失败，但是无所谓哈哈哈哈哈哈</p>
+<!-- 这是一张图片，ocr 内容为：杭州紫子科技大学 HANGZWOU DIANZI UNIVERSITY 全日制高技能+学历招生网 PHUL 招生专业 在线报名 -->
+<p><img src="/images/access-injection/1729494819999-bb7f5591-f2c5-4f7a-9e13-6b24dd3a9367.png"></p>
+<!-- 这是一张图片，ocr 内容为：2003企业版32位 N-VMWARE WORKSTATION (H)(H) 店(MING ED卡() 虚拟网络编组路 介主页> 口 标识符 中国事件查系器 本地安全策圣 我的电脑 默认问站 共享文件夹 正在运行 本地用户和组 正在运行 1629253543 正在运行 正在运行 SITEFOCTERY.STANDARD 网上邻居 工在运行 (科格技式(件成机直的建设控形的网络](因) 电话可移动存储 正在运行 销盘碎片禁用标序 2142575833 正在运行 基础息管理 正在运行 2 白风国务家应用程序 ONAT 模式[与成批共本主肌的护边证00 正在运行     计算机管理 (汉主机械式(在专用网络内遍接成和双H) HTC:WIMORSTSTEN32LCADEXE 主机目的送迎居信务:VMWER 网络送配展VMNEE MICROSOFT WINDOWS [版本 5.2.3790] 配置(0... (C)版权所有 1985-2003 MICROSOFT CORP. 192.168.3.0 255.25.25.0 和打印机共享 C:\DOCUMENTS AND SETTINGS(ADMINISTRATOR\PING BAIDU.COM 行告 IPING REQUEST COULD NOT FIND HOST BALDU.COM. PLEASE CHECK THE NAME AND TRY AGAIN (月 ?X ATERNET 协议 (RCP/IP)  应性 C:/DOCUMENTS AND SETTINGS\ADMISTRATOR> 目录安全性 常规 网站 文档 热烈祝贺岁建筑改造型制可以在脂肪基础中心.1.设置 网站标识 0610028ING 192.168.8.2 区连接着在通知区城是示图标( 商级中). (自动获得 IP 地址:Q) 贮存接该调制欧无连接时通知发(5) TCP 出口(K) 69 SSL 第口() 192.100.32 取消 子阿凯玛( 255 .255  255.0 120秒 默认阿关中 关闭( 区 保持HT 连接图 区启用日古记录() 自动获得DHG用装爵地址可 使用下面的DBS服务器体址(见): 活动日志格式心: 尼性0). MOC扩展日志文件格式 首选 DIS 服务器(0): 眼润 砂助 取消 确定 应月(K) W.WTHMTHMARTAS32 -->
+<p><img src="/images/access-injection/1729494920599-5355b6a4-7dee-4021-8701-3dbed54baf0f.png"></p>
+<p>你妈的，昨天192.168.3.2用的好好的，今天就本地连接一直失败，整了半天还没有弄好，最后没办法只得改个IP。。。有点无语，这么简单一时间不知道是开心还是难过。。。。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://yh8567.github.io">江小白</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://yh8567.github.io/2026/05/25/asp-access-database-injection/">https://yh8567.github.io/2026/05/25/asp-access-database-injection/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://yh8567.github.io" target="_blank">江小白</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/SQL%E6%B3%A8%E5%85%A5/">SQL注入</a><a class="post-meta__tags" href="/tags/ASP/">ASP</a><a class="post-meta__tags" href="/tags/Access%E6%95%B0%E6%8D%AE%E5%BA%93/">Access数据库</a><a class="post-meta__tags" href="/tags/IIS%E8%A7%A3%E6%9E%90%E6%BC%8F%E6%B4%9E/">IIS解析漏洞</a><a class="post-meta__tags" href="/tags/HTTP-sys/">HTTP.sys</a><a class="post-meta__tags" href="/tags/CVE-2015-1635/">CVE-2015-1635</a><a class="post-meta__tags" href="/tags/%E7%9F%AD%E6%96%87%E4%BB%B6%E5%90%8D/">短文件名</a><a class="post-meta__tags" href="/tags/WebDAV/">WebDAV</a><a class="post-meta__tags" href="/tags/MSSQL/">MSSQL</a></div><div class="post-share"><div class="social-share" data-image="/img/avatar.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related full-width" href="/2026/05/25/xss-cross-site-scripting/" title="XSS跨站脚本攻击 — 原理、分类与利用实战"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">XSS跨站脚本攻击 — 原理、分类与利用实战</div></div><div class="info-2"><div class="info-item-1">XSS跨站跨站脚本攻击 XSS(Cross Site Scripting)，为了不和层叠样式表(Cascading Style Sheets, CSS)的缩写混淆，故将跨站脚本攻击缩写为 XSS。 XSS 攻击针对的是用户层面的攻击     #XSS跨站-输入输出-原理&amp;分类&amp;闭合漏洞原理：恶意攻击者往 Web 页面里插入恶意 Script 代码，当用户浏览该页面时，嵌入 Web 里面的 Script 代码会被执行，从而达到恶意攻击用户的目的。接受输入数据，输出显示数据后解析执行 基础类型：反射(非持续)，存储(持续)，DOM-BASE 拓展类型：jquery，mxss，uxss，pdfxss，flashxss，上传xss等 常用标签：  https://www.freebuf.com/articles/web/340080.html 攻击利用：盲打，COOKIE盗取，凭据窃取，页面劫持，网络钓鱼，权限维持等 安全修复：字符过滤，实例化编码，http_only，CSP防护，WAF拦截等 测试流程：看输出想输入在哪里，更改输入代码看执行（标签，过滤决定） #XSS跨...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/05/17/sql-blind-injection/" title="SQL盲注技术 — 布尔、时间、报错注入与CMS实战"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-17</div><div class="info-item-2">SQL盲注技术 — 布尔、时间、报错注入与CMS实战</div></div><div class="info-2"><div class="info-item-1">什么是盲注当注入获取的数据不能回显到前端页面时，我们需要用特殊方法判断和尝试，这就是盲注。 三类盲注：    类型 依赖条件 常用函数    布尔盲注 页面有输出判断标准 length, left, substr, ascii, ord   时间盲注 完全无回显 if, sleep   报错盲注 有报错容错处理 updatexml, extractvalue, floor    布尔盲注基本思路： 爆库名长度 → 逐位猜库名 → 爆表数量 → 爆表名长度 → 逐位猜表名 → 爆列数量 → 爆列名 → 爆数据 12345678-- 爆数据库长度id=1 and length(database())=7-- 逐位猜解数据库名id=1 and left(database(),1)=&#x27;p&#x27;id=1 and substr(database(),2,1)=&#x27;i&#x27;id=1 and ord(left(database(),1))=112id=1 and ascii(substr(database(),1,1))=112  爆表数量： 1id=1 and (...</div></div></div></a><a class="pagination-related" href="/2026/05/17/mysql-injection-basics/" title="SQL注入基础 — MySQL注入入门到文件读写"><div class="cover" style="background: var(--default-bg-color)"></div><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-17</div><div class="info-item-2">SQL注入基础 — MySQL注入入门到文件读写</div></div><div class="info-2"><div class="info-item-1">PHP-MySQL-Web 组成架构服务器安装 MySQL 数据库，搭建多个站点，数据库集中存储管理。可以用 root 用户统一管理，也可以为每个网站创建独立的数据库用户。 统一 root 用户管理12www.zblog.com → zblog → root → MySQLwww.demo01.com → demo01 → root → MySQL  一对一用户管理（推荐）12www.zblog.com → zblog → zblog → MySQLwww.demo01.com → demo01 → demo01 → MySQL   SQL 注入步骤1. 判断注入类型：数字型还是字符型数字型的变量在 SQL 拼接时不用引号，字符型用引号： 1234# 数字型SELECT first_name, last_name FROM users WHERE user_id = $id;# 字符型SELECT first_name, last_name FROM users WHERE user_id = &#x27;$id&#x27;;  测试数字型： 121 and 1=11 and 1...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/avatar.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">江小白</div><div class="author-info-description">信息安全 | 渗透测试 | 技术分享</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">5</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">32</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/yh8567"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/yh8567" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">路漫漫其修远兮，吾将上下而求索</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#ASP-SQL%E6%B3%A8%E5%85%A5-Access%E6%95%B0%E6%8D%AE%E5%BA%93%EF%BC%8841%EF%BC%89"><span class="toc-number">1.</span> <span class="toc-text">ASP-SQL注入-Access数据库（41）</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#ASP-%E4%B8%AD%E9%97%B4%E4%BB%B6-CVE-%E7%9F%AD%E6%96%87%E4%BB%B6-%E8%A7%A3%E6%9E%90-%E5%86%99%E6%9D%83%E9%99%90"><span class="toc-number">1.1.</span> <span class="toc-text">#ASP-中间件-CVE&amp;短文件&amp;解析&amp;写权限</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#HTTP-SYS%EF%BC%88CVE-2015-1635%EF%BC%89%EF%BC%8827-15%EF%BC%89"><span class="toc-number">1.1.1.</span> <span class="toc-text">-HTTP.SYS（CVE-2015-1635）（27:15）</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#IIS%E7%9F%AD%E6%96%87%E4%BB%B6%EF%BC%8838-17%EF%BC%89%E4%B8%BB%E8%A6%81%E7%9B%AE%E7%9A%84%E4%B8%BA%E4%BA%86%E8%8E%B7%E5%8F%96-mdb%E6%96%87%E4%BB%B6%E7%9A%84%E8%B7%AF%E5%BE%84%EF%BC%8C%E5%86%8D%E8%8E%B7%E5%8F%96%E8%AE%BF%E9%97%AE"><span class="toc-number">1.2.</span> <span class="toc-text">-IIS短文件（38:17）主要目的为了获取.mdb文件的路径，再获取访问</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#IIS%E6%96%87%E4%BB%B6%E8%A7%A3%E6%9E%90"><span class="toc-number">2.</span> <span class="toc-text">-IIS文件解析</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#IIS-6-%E8%A7%A3%E6%9E%90%E6%BC%8F%E6%B4%9E"><span class="toc-number">2.1.</span> <span class="toc-text">IIS 6 解析漏洞</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#IIS-7-x-%E8%A7%A3%E6%9E%90%E6%BC%8F%E6%B4%9E"><span class="toc-number">2.2.</span> <span class="toc-text">IIS 7.x 解析漏洞</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#IIS%E5%86%99%E6%9D%83%E9%99%90"><span class="toc-number">2.3.</span> <span class="toc-text">-IIS写权限</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#ASP-SQL%E6%B3%A8%E5%85%A5-SQLMAP%E4%BD%BF%E7%94%A8-ACCESS%E6%B3%A8%E5%85%A5"><span class="toc-number">2.4.</span> <span class="toc-text">#ASP-SQL注入-SQLMAP使用&amp;ACCESS注入</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%95%AA%E5%A4%96"><span class="toc-number">2.5.</span> <span class="toc-text">番外</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/05/25/asp-access-database-injection/" title="ASP-SQL注入 — Access数据库注入实战">ASP-SQL注入 — Access数据库注入实战</a><time datetime="2026-05-25T13:00:00.000Z" title="发表于 2026-05-25 21:00:00">2026-05-25</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/05/25/xss-cross-site-scripting/" title="XSS跨站脚本攻击 — 原理、分类与利用实战">XSS跨站脚本攻击 — 原理、分类与利用实战</a><time datetime="2026-05-25T12:00:00.000Z" title="发表于 2026-05-25 20:00:00">2026-05-25</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/05/23/ssrf-attack-and-defense/" title="关于SSRF（服务端请求伪造）攻击与利用实战">关于SSRF（服务端请求伪造）攻击与利用实战</a><time datetime="2026-05-23T12:00:00.000Z" title="发表于 2026-05-23 20:00:00">2026-05-23</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/05/17/sql-blind-injection/" title="SQL盲注技术 — 布尔、时间、报错注入与CMS实战">SQL盲注技术 — 布尔、时间、报错注入与CMS实战</a><time datetime="2026-05-17T05:00:00.000Z" title="发表于 2026-05-17 13:00:00">2026-05-17</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/05/17/mysql-injection-basics/" title="SQL注入基础 — MySQL注入入门到文件读写">SQL注入基础 — MySQL注入入门到文件读写</a><time datetime="2026-05-17T04:00:00.000Z" title="发表于 2026-05-17 12:00:00">2026-05-17</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2025 - 2026 By 江小白</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 8.1.1</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5-b1</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5-b1"></script><script src="/js/main.js?v=5.5.5-b1"></script><div class="js-pjax"></div><script>
+(() => {
+  const html = document.documentElement
+  const dayBgs = ['/img/白天图.png', '/img/白天图2.png']
+  const nightBgs = ['/img/夜晚图.png', '/img/夜晚图2.png']
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)] }
+
+  const saved = localStorage.getItem('theme') || 'dark'
+  html.setAttribute('data-theme', saved)
+  document.body.style.background = 'url(' + pick(saved === 'dark' ? nightBgs : dayBgs) + ') center center / cover no-repeat fixed'
+
+  const toggleBtn = document.querySelector('.nav-site-title')
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', (e) => {
+      e.preventDefault()
+      const cur = html.getAttribute('data-theme')
+      const next = cur === 'dark' ? 'light' : 'dark'
+      html.setAttribute('data-theme', next)
+      localStorage.setItem('theme', next)
+      document.body.style.background = 'url(' + pick(next === 'dark' ? nightBgs : dayBgs) + ') center center / cover no-repeat fixed'
+    })
+  }
+
+  const immersiveBtn = document.createElement('a')
+  immersiveBtn.id = 'immersive-btn'
+  immersiveBtn.title = '沉浸模式 — 隐藏页面元素，只看背景'
+  immersiveBtn.innerHTML = '<div class="mini-cat"><div class="mini-body"></div></div>'
+  document.body.appendChild(immersiveBtn)
+  immersiveBtn.addEventListener('click', () => {
+    document.body.classList.toggle('immersive')
+    immersiveBtn.style.opacity = document.body.classList.contains('immersive') ? '0.5' : '1'
+  })
+})()
+</script>
+<script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
